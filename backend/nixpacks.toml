@@ -9,7 +9,4 @@ cmds = ["curl -LsSf https://astral.sh/uv/install.sh | sh", "uv sync"]
 cmds = ["echo 'Build phase complete'"]
 
 [start]
-cmd = "uv run python -m uvicorn src.api.main:app --host 0.0.0.0 --port $PORT"
-
-[variables]
-PORT = "8000"
+cmd = "uv run python -m uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
