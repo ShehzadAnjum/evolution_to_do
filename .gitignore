@@ -1,0 +1,91 @@
+# Build outputs
+/build
+/dist
+/.next
+/.docusaurus
+/.cache
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+/venv
+/__pycache__
+*.pyc
+.uv/
+
+# Testing
+/coverage
+/test-results
+/.pytest_cache
+.nyc_output
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+.DS_Store
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Python
+*.egg-info/
+.eggs/
+dist/
+.Python
+
+# Temporary
+*.tmp
+*.temp
+.temp/
+
+# Database
+*.db
+*.sqlite
+
+# Docker
+.dockerignore
+
+# Kubernetes
+*.kubeconfig
+
+# Secrets
+*.pem
+*.key
+*.crt
+
+# UV virtual environment
+.venv/
+
+# Backend specific
+backend/.venv/
+backend/__pycache__/
+backend/.pytest_cache/
+backend/uv.lock
+
+# Frontend specific
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/node_modules/
+frontend/.env*.local
+
+# Research directory (may contain temporary files)
+research/.venv/
+research/__pycache__/
+

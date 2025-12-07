@@ -1,0 +1,89 @@
+# SpecKit Plus Configuration
+# Evolution of Todo Project
+
+project:
+  name: "Evolution of Todo"
+  version: "1.0.0"
+  hackathon: "Hackathon II - The Evolution of Todo"
+
+phases:
+  - id: "phase-1"
+    name: "Console Application"
+    status: "planned"
+    deadline: "2025-12-07"
+    points: 100
+    features:
+      - task-crud
+
+  - id: "phase-2"
+    name: "Web Application"
+    status: "planned"
+    deadline: "2025-12-14"
+    points: 150
+    features:
+      - web-ui
+      - rest-api
+      - authentication
+      - database
+
+  - id: "phase-3"
+    name: "AI Chatbot"
+    status: "planned"
+    deadline: "2025-12-21"
+    points: 200
+    features:
+      - ai-agent
+      - mcp-tools
+      - chatkit-ui
+
+  - id: "phase-4"
+    name: "Local Kubernetes"
+    status: "planned"
+    deadline: "2026-01-04"
+    points: 250
+    features:
+      - docker
+      - helm
+      - minikube
+
+  - id: "phase-5"
+    name: "Cloud + Advanced Features"
+    status: "planned"
+    deadline: "2026-01-18"
+    points: 300
+    features:
+      - doks
+      - kafka
+      - dapr
+      - advanced-features
+
+phr:
+  enabled: true
+  auto_create: true
+  routing:
+    constitution: "history/prompts/constitution/"
+    features: "history/prompts/{feature}/"
+    general: "history/prompts/general/"
+
+adr:
+  enabled: true
+  directory: "history/adr/"
+  auto_suggest: true
+  significance_test:
+    impact: true  # Long-term consequences?
+    alternatives: true  # Multiple viable options?
+    scope: true  # Cross-cutting influence?
+
+constitution:
+  path: ".specify/memory/constitution.md"
+  enforcement:
+    automated: true
+    manual: true
+    ai: true
+
+templates:
+  spec: ".specify/templates/spec-template.md"
+  plan: ".specify/templates/plan-template.md"
+  tasks: ".specify/templates/tasks-template.md"
+  adr: ".specify/templates/adr-template.md"
+  phr: ".specify/templates/phr-template.prompt.md"

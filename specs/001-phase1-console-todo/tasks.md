@@ -19,12 +19,12 @@
 
 **Purpose**: Project initialization and Python/UV configuration
 
-- [ ] T001 Create backend directory structure per plan.md
-- [ ] T002 Initialize UV project with `uv init` in backend/
-- [ ] T003 Configure pyproject.toml with Python 3.13+ requirement
-- [ ] T004 [P] Add pytest and pytest-cov as dev dependencies
-- [ ] T005 [P] Create all `__init__.py` files for packages (src/, models/, services/, cli/, lib/, tests/)
-- [ ] T006 [P] Create .gitignore with Python patterns (venv, __pycache__, .pytest_cache, etc.)
+- [x] T001 Create backend directory structure per plan.md
+- [x] T002 Initialize UV project with `uv init` in backend/
+- [x] T003 Configure pyproject.toml with Python 3.13+ requirement
+- [x] T004 [P] Add pytest and pytest-cov as dev dependencies
+- [x] T005 [P] Create all `__init__.py` files for packages (src/, models/, services/, cli/, lib/, tests/)
+- [x] T006 [P] Create .gitignore with Python patterns (venv, __pycache__, .pytest_cache, etc.)
 
 **Checkpoint**: UV project initialized, can run `uv sync` successfully
 
@@ -36,12 +36,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T007 [P] Create Task dataclass with validation in backend/src/models/task.py (from data-model.md)
-- [ ] T008 [P] Create TaskStore class with CRUD operations in backend/src/services/task_store.py (from data-model.md)
-- [ ] T009 [P] Create input validators (title length 200, description 1000, Unicode support) in backend/src/lib/validators.py
-- [ ] T010 [P] Create output formatters (success ✓, error ✗, box drawing) in backend/src/cli/formatters.py
-- [ ] T011 Create menu display system with box drawing in backend/src/cli/menu.py (from cli-interface.md)
-- [ ] T012 Create main entry point with menu loop and Ctrl+C handling in backend/src/main.py
+- [x] T007 [P] Create Task dataclass with validation in backend/src/models/task.py (from data-model.md)
+- [x] T008 [P] Create TaskStore class with CRUD operations in backend/src/services/task_store.py (from data-model.md)
+- [x] T009 [P] Create input validators (title length 200, description 1000, Unicode support) in backend/src/lib/validators.py
+- [x] T010 [P] Create output formatters (success ✓, error ✗, box drawing) in backend/src/cli/formatters.py
+- [x] T011 Create menu display system with box drawing in backend/src/cli/menu.py (from cli-interface.md)
+- [x] T012 Create main entry point with menu loop and Ctrl+C handling in backend/src/main.py
 
 **Checkpoint**: Foundation ready - can display menu and handle Ctrl+C gracefully
 
@@ -55,16 +55,16 @@
 
 ### Tests for User Story 1
 
-- [ ] T013 [P] [US1] Unit test for Task dataclass validation in backend/tests/unit/test_task.py
-- [ ] T014 [P] [US1] Unit test for TaskStore.add() and TaskStore.get_all() in backend/tests/unit/test_task_store.py
+- [x] T013 [P] [US1] Unit test for Task dataclass validation in backend/tests/unit/test_task.py
+- [x] T014 [P] [US1] Unit test for TaskStore.add() and TaskStore.get_all() in backend/tests/unit/test_task_store.py
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement add_task handler (prompt title, optional description) in backend/src/cli/handlers.py
-- [ ] T016 [US1] Implement view_tasks handler (list all with status indicators) in backend/src/cli/handlers.py
-- [ ] T017 [US1] Implement empty state display ("No tasks yet") in view_tasks handler
-- [ ] T018 [US1] Implement task summary (Total/Completed/Remaining) in view_tasks handler
-- [ ] T019 [US1] Wire add_task and view_tasks to menu options 1 and 2 in backend/src/main.py
+- [x] T015 [US1] Implement add_task handler (prompt title, optional description) in backend/src/cli/handlers.py
+- [x] T016 [US1] Implement view_tasks handler (list all with status indicators) in backend/src/cli/handlers.py
+- [x] T017 [US1] Implement empty state display ("No tasks yet") in view_tasks handler
+- [x] T018 [US1] Implement task summary (Total/Completed/Remaining) in view_tasks handler
+- [x] T019 [US1] Wire add_task and view_tasks to menu options 1 and 2 in backend/src/main.py
 
 **Checkpoint**: Can add tasks and view them - MVP is functional
 
@@ -78,13 +78,13 @@
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Unit test for TaskStore.toggle_complete() in backend/tests/unit/test_task_store.py
+- [x] T020 [P] [US2] Unit test for TaskStore.toggle_complete() in backend/tests/unit/test_task_store.py
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Implement mark_complete handler (prompt ID, toggle status) in backend/src/cli/handlers.py
-- [ ] T022 [US2] Add error handling for invalid task ID in mark_complete handler
-- [ ] T023 [US2] Wire mark_complete to menu option 3 in backend/src/main.py
+- [x] T021 [US2] Implement mark_complete handler (prompt ID, toggle status) in backend/src/cli/handlers.py
+- [x] T022 [US2] Add error handling for invalid task ID in mark_complete handler
+- [x] T023 [US2] Wire mark_complete to menu option 3 in backend/src/main.py
 
 **Checkpoint**: Can mark tasks complete/incomplete - status tracking works
 
@@ -98,14 +98,14 @@
 
 ### Tests for User Story 3
 
-- [ ] T024 [P] [US3] Unit test for TaskStore.update() (partial updates, preserve unchanged) in backend/tests/unit/test_task_store.py
+- [x] T024 [P] [US3] Unit test for TaskStore.update() (partial updates, preserve unchanged) in backend/tests/unit/test_task_store.py
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Implement update_task handler (show current, prompt new values) in backend/src/cli/handlers.py
-- [ ] T026 [US3] Handle empty input preservation (keep current value) in update_task handler
-- [ ] T027 [US3] Add error handling for invalid task ID in update_task handler
-- [ ] T028 [US3] Wire update_task to menu option 4 in backend/src/main.py
+- [x] T025 [US3] Implement update_task handler (show current, prompt new values) in backend/src/cli/handlers.py
+- [x] T026 [US3] Handle empty input preservation (keep current value) in update_task handler
+- [x] T027 [US3] Add error handling for invalid task ID in update_task handler
+- [x] T028 [US3] Wire update_task to menu option 4 in backend/src/main.py
 
 **Checkpoint**: Can update tasks - editing functionality complete
 
@@ -119,14 +119,14 @@
 
 ### Tests for User Story 4
 
-- [ ] T029 [P] [US4] Unit test for TaskStore.delete() in backend/tests/unit/test_task_store.py
+- [x] T029 [P] [US4] Unit test for TaskStore.delete() in backend/tests/unit/test_task_store.py
 
 ### Implementation for User Story 4
 
-- [ ] T030 [US4] Implement delete_task handler (prompt ID, show task, confirm) in backend/src/cli/handlers.py
-- [ ] T031 [US4] Implement confirmation dialog (y/n with validation) in backend/src/cli/handlers.py
-- [ ] T032 [US4] Add error handling for invalid task ID in delete_task handler
-- [ ] T033 [US4] Wire delete_task to menu option 5 in backend/src/main.py
+- [x] T030 [US4] Implement delete_task handler (prompt ID, show task, confirm) in backend/src/cli/handlers.py
+- [x] T031 [US4] Implement confirmation dialog (y/n with validation) in backend/src/cli/handlers.py
+- [x] T032 [US4] Add error handling for invalid task ID in delete_task handler
+- [x] T033 [US4] Wire delete_task to menu option 5 in backend/src/main.py
 
 **Checkpoint**: All 5 operations complete - full feature set implemented
 
@@ -136,12 +136,12 @@
 
 **Purpose**: Final quality improvements and verification
 
-- [ ] T034 [P] Create integration test for full CLI workflow in backend/tests/integration/test_cli.py
-- [ ] T035 [P] Create backend/README.md with setup and usage instructions
-- [ ] T036 Implement exit handler (menu option 6) with goodbye message in backend/src/main.py
-- [ ] T037 Run all tests and ensure 100% pass rate
-- [ ] T038 Manual test: Complete full workflow (add → view → complete → update → delete) in < 60 seconds
-- [ ] T039 Validate quickstart.md instructions work for fresh setup
+- [x] T034 [P] Create integration test for full CLI workflow in backend/tests/integration/test_cli.py
+- [x] T035 [P] Create backend/README.md with setup and usage instructions
+- [x] T036 Implement exit handler (menu option 6) with goodbye message in backend/src/main.py
+- [x] T037 Run all tests and ensure 100% pass rate
+- [x] T038 Manual test: Complete full workflow (add → view → complete → update → delete) in < 60 seconds
+- [x] T039 Validate quickstart.md instructions work for fresh setup
 
 **Checkpoint**: All tests pass, quickstart works, ready for demo
 

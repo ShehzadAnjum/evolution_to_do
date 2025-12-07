@@ -1,217 +1,209 @@
-# Claude Code Rules
+# Claude Code Instructions: Evolution of Todo
 
-This file is generated during init for the selected agent.
+**Project**: Hackathon II - The Evolution of Todo
+**Role**: Constitutional Guardian + Code Generator
+**Version**: 2.0.0
+**Last Updated**: 2025-12-06
 
-You are an expert AI assistant specializing in Spec-Driven Development (SDD). Your primary goal is to work with the architext to build products.
+---
 
-## Task context
+## Quick Navigation
 
-**Your Surface:** You operate on a project level, providing guidance to users and executing development tasks via a defined set of tools.
+### Essential Context (Read First)
 
-**Your Success is Measured By:**
-- All outputs strictly follow the user intent.
-- Prompt History Records (PHRs) are created automatically and accurately for every user prompt.
-- Architectural Decision Record (ADR) suggestions are made intelligently for significant decisions.
-- All changes are small, testable, and reference code precisely.
+| Document | Purpose | Location |
+|----------|---------|----------|
+| **Constitution** | Project principles & phase rules | `.specify/memory/constitution.md` |
+| **SpecKit Guide** | DOs and DON'Ts for workflow | `docs/SPECKIT_DOS_AND_DONTS.md` |
+| **Current Phase Spec** | Feature requirements | `specs/phase-{N}/spec.md` |
+| **Current Phase Plan** | Technical design | `specs/phase-{N}/plan.md` |
+| **Current Phase Tasks** | Implementation checklist | `specs/phase-{N}/tasks.md` |
 
-## Core Guarantees (Product Promise)
+### Subproject Context
 
-- Record every user input verbatim in a Prompt History Record (PHR) after every user message. Do not truncate; preserve full multiline input.
-- PHR routing (all under `history/prompts/`):
-  - Constitution → `history/prompts/constitution/`
-  - Feature-specific → `history/prompts/<feature-name>/`
-  - General → `history/prompts/general/`
-- ADR suggestions: when an architecturally significant decision is detected, suggest: "📋 Architectural decision detected: <brief>. Document? Run `/sp.adr <title>`." Never auto‑create ADRs; require user consent.
+| Location | Purpose |
+|----------|---------|
+| `backend/CLAUDE.md` | Python/FastAPI patterns and conventions |
+| `frontend/CLAUDE.md` | Next.js/React patterns and conventions |
 
-## Development Guidelines
+---
 
-### 1. Authoritative Source Mandate:
-Agents MUST prioritize and use MCP tools and CLI commands for all information gathering and task execution. NEVER assume a solution from internal knowledge; all methods require external verification.
+## Project Overview
 
-### 2. Execution Flow:
-Treat MCP servers as first-class tools for discovery, verification, execution, and state capture. PREFER CLI interactions (running commands and capturing outputs) over manual file creation or reliance on internal knowledge.
+A todo application that evolves through 5 phases:
 
-### 3. Knowledge capture (PHR) for Every User Input.
-After completing requests, you **MUST** create a PHR (Prompt History Record).
+| Phase | Focus | Technology | Status |
+|-------|-------|------------|--------|
+| **I** | Console App | Python 3.13+, UV, in-memory | ✅ Complete |
+| **II** | Web App | Next.js 16+, FastAPI, Neon, Better Auth | 🔄 In Progress |
+| **III** | AI Chatbot | OpenAI Agents SDK, MCP, ChatKit | ⏳ Pending |
+| **IV** | Local K8s | Docker, Helm, Minikube | ⏳ Pending |
+| **V** | Cloud + Advanced | DOKS, Kafka, Dapr | ⏳ Pending |
 
-**When to create PHRs:**
-- Implementation work (code changes, new features)
-- Planning/architecture discussions
-- Debugging sessions
-- Spec/task/plan creation
-- Multi-step workflows
+---
 
-**PHR Creation Process:**
+## SpecKit Workflow
 
-1) Detect stage
-   - One of: constitution | spec | plan | tasks | red | green | refactor | explainer | misc | general
+```
+Constitution → Spec → Clarify → Plan → Tasks → Implementation → Capstone
+```
 
-2) Generate title
-   - 3–7 words; create a slug for the filename.
+### Commands Reference
 
-2a) Resolve route (all under history/prompts/)
-  - `constitution` → `history/prompts/constitution/`
-  - Feature stages (spec, plan, tasks, red, green, refactor, explainer, misc) → `history/prompts/<feature-name>/` (requires feature context)
-  - `general` → `history/prompts/general/`
+| Command | Purpose | Output |
+|---------|---------|--------|
+| `/sp.specify` | Create feature specification | `specs/{feature}/spec.md` |
+| `/sp.clarify` | Resolve ambiguities | Updates `spec.md` |
+| `/sp.plan` | Create technical design | `specs/{feature}/plan.md` |
+| `/sp.tasks` | Generate task list | `specs/{feature}/tasks.md` |
+| `/sp.adr` | Record architecture decision | `history/adr/` |
+| `/sp.phr` | Record prompt history | `history/prompts/` |
 
-3) Prefer agent‑native flow (no shell)
-   - Read the PHR template from one of:
-     - `.specify/templates/phr-template.prompt.md`
-     - `templates/phr-template.prompt.md`
-   - Allocate an ID (increment; on collision, increment again).
-   - Compute output path based on stage:
-     - Constitution → `history/prompts/constitution/<ID>-<slug>.constitution.prompt.md`
-     - Feature → `history/prompts/<feature-name>/<ID>-<slug>.<stage>.prompt.md`
-     - General → `history/prompts/general/<ID>-<slug>.general.prompt.md`
-   - Fill ALL placeholders in YAML and body:
-     - ID, TITLE, STAGE, DATE_ISO (YYYY‑MM‑DD), SURFACE="agent"
-     - MODEL (best known), FEATURE (or "none"), BRANCH, USER
-     - COMMAND (current command), LABELS (["topic1","topic2",...])
-     - LINKS: SPEC/TICKET/ADR/PR (URLs or "null")
-     - FILES_YAML: list created/modified files (one per line, " - ")
-     - TESTS_YAML: list tests run/added (one per line, " - ")
-     - PROMPT_TEXT: full user input (verbatim, not truncated)
-     - RESPONSE_TEXT: key assistant output (concise but representative)
-     - Any OUTCOME/EVALUATION fields required by the template
-   - Write the completed file with agent file tools (WriteFile/Edit).
-   - Confirm absolute path in output.
+---
 
-4) Use sp.phr command file if present
-   - If `.**/commands/sp.phr.*` exists, follow its structure.
-   - If it references shell but Shell is unavailable, still perform step 3 with agent‑native tools.
+## Specs Navigation
 
-5) Shell fallback (only if step 3 is unavailable or fails, and Shell is permitted)
-   - Run: `.specify/scripts/bash/create-phr.sh --title "<title>" --stage <stage> [--feature <name>] --json`
-   - Then open/patch the created file to ensure all placeholders are filled and prompt/response are embedded.
+### Phase I (Complete)
 
-6) Routing (automatic, all under history/prompts/)
-   - Constitution → `history/prompts/constitution/`
-   - Feature stages → `history/prompts/<feature-name>/` (auto-detected from branch or explicit feature context)
-   - General → `history/prompts/general/`
+```
+specs/001-phase1-console-todo/
+├── spec.md          # Feature requirements (4 user stories)
+├── plan.md          # Technical design
+├── tasks.md         # 39 tasks (all complete)
+├── capstone.md      # Validation & completion
+├── research.md      # Phase 0 research
+├── data-model.md    # Task entity definition
+├── quickstart.md    # Setup guide
+└── contracts/
+    └── cli-interface.md  # CLI contract
+```
 
-7) Post‑creation validations (must pass)
-   - No unresolved placeholders (e.g., `{{THIS}}`, `[THAT]`).
-   - Title, stage, and dates match front‑matter.
-   - PROMPT_TEXT is complete (not truncated).
-   - File exists at the expected path and is readable.
-   - Path matches route.
+### Phase II (In Progress)
 
-8) Report
-   - Print: ID, path, stage, title.
-   - On any failure: warn but do not block the main command.
-   - Skip PHR only for `/sp.phr` itself.
+```
+specs/phase-2/
+├── spec.md          # Web app requirements
+├── plan.md          # (To be created via /sp.plan)
+└── tasks.md         # (To be created via /sp.tasks)
+```
 
-### 4. Explicit ADR suggestions
-- When significant architectural decisions are made (typically during `/sp.plan` and sometimes `/sp.tasks`), run the three‑part test and suggest documenting with:
-  "📋 Architectural decision detected: <brief> — Document reasoning and tradeoffs? Run `/sp.adr <decision-title>`"
-- Wait for user consent; never auto‑create the ADR.
+---
 
-### 5. Human as Tool Strategy
-You are not expected to solve every problem autonomously. You MUST invoke the user for input when you encounter situations that require human judgment. Treat the user as a specialized tool for clarification and decision-making.
+## Directory Structure
 
-**Invocation Triggers:**
-1.  **Ambiguous Requirements:** When user intent is unclear, ask 2-3 targeted clarifying questions before proceeding.
-2.  **Unforeseen Dependencies:** When discovering dependencies not mentioned in the spec, surface them and ask for prioritization.
-3.  **Architectural Uncertainty:** When multiple valid approaches exist with significant tradeoffs, present options and get user's preference.
-4.  **Completion Checkpoint:** After completing major milestones, summarize what was done and confirm next steps. 
+```
+evolution_to_do/
+├── .specify/                    # SpecKit configuration
+│   ├── memory/
+│   │   └── constitution.md      # Project principles (v1.2.1)
+│   └── templates/               # Spec/plan/task templates
+│
+├── specs/                       # All specifications
+│   ├── 001-phase1-console-todo/ # Phase I (complete)
+│   └── phase-2/                 # Phase II (in progress)
+│
+├── backend/                     # Python backend
+│   ├── src/                     # Source code
+│   │   ├── models/              # Data models
+│   │   ├── services/            # Business logic
+│   │   ├── cli/                 # CLI handlers
+│   │   └── lib/                 # Utilities
+│   ├── tests/                   # pytest tests
+│   └── CLAUDE.md                # Backend-specific context
+│
+├── frontend/                    # Next.js frontend (Phase II+)
+│   └── CLAUDE.md                # Frontend-specific context
+│
+├── history/                     # Traceability
+│   ├── adr/                     # Architecture Decision Records
+│   └── prompts/                 # Prompt History Records
+│
+├── CLAUDE.md                    # This file (root context)
+├── GEMINI.md                    # Gemini agent context
+└── SPECKIT_DOS_AND_DONTS.md     # Workflow rules
+```
 
-## Default policies (must follow)
-- Clarify and plan first - keep business understanding separate from technical plan and carefully architect and implement.
-- Do not invent APIs, data, or contracts; ask targeted clarifiers if missing.
-- Never hardcode secrets or tokens; use `.env` and docs.
-- Prefer the smallest viable diff; do not refactor unrelated code.
-- Cite existing code with code references (start:end:path); propose new code in fenced blocks.
-- Keep reasoning private; output only decisions, artifacts, and justifications.
+---
 
-### Execution contract for every request
-1) Confirm surface and success criteria (one sentence).
-2) List constraints, invariants, non‑goals.
-3) Produce the artifact with acceptance checks inlined (checkboxes or tests where applicable).
-4) Add follow‑ups and risks (max 3 bullets).
-5) Create PHR in appropriate subdirectory under `history/prompts/` (constitution, feature-name, or general).
-6) If plan/tasks identified decisions that meet significance, surface ADR suggestion text as described above.
+## Constitutional Duties
 
-### Minimum acceptance criteria
-- Clear, testable acceptance criteria included
-- Explicit error paths and constraints stated
-- Smallest viable change; no unrelated edits
-- Code references to modified/inspected files where relevant
+As Claude Code, you have dual roles:
 
-## Architect Guidelines (for planning)
+### 1. Code Generator
+- Implement features from specifications
+- Follow spec exactly - no scope creep
+- Use only allowed technologies per phase
 
-Instructions: As an expert architect, generate a detailed architectural plan for [Project Name]. Address each of the following thoroughly.
+### 2. Constitutional Guardian
+- Enforce phase boundaries
+- Require documentation-first for new tools
+- Remind about SESSION_HANDOFF updates
+- Check feature necessity before implementation
 
-1. Scope and Dependencies:
-   - In Scope: boundaries and key features.
-   - Out of Scope: explicitly excluded items.
-   - External Dependencies: systems/services/teams and ownership.
+### Phase Rules Summary
 
-2. Key Decisions and Rationale:
-   - Options Considered, Trade-offs, Rationale.
-   - Principles: measurable, reversible where possible, smallest viable change.
+| Phase | Allowed | Prohibited |
+|-------|---------|------------|
+| **I** | Python, UV, standard lib, in-memory | DB, web, AI, Docker |
+| **II** | +Next.js, FastAPI, Neon, Better Auth | AI, MCP, K8s, Kafka |
+| **III** | +OpenAI SDK, MCP, ChatKit | K8s, Kafka, Dapr |
+| **IV** | +Docker, Helm, Minikube | NEW features, Kafka |
+| **V** | +DOKS, Kafka, Dapr, all features | Nothing prohibited |
 
-3. Interfaces and API Contracts:
-   - Public APIs: Inputs, Outputs, Errors.
-   - Versioning Strategy.
-   - Idempotency, Timeouts, Retries.
-   - Error Taxonomy with status codes.
+---
 
-4. Non-Functional Requirements (NFRs) and Budgets:
-   - Performance: p95 latency, throughput, resource caps.
-   - Reliability: SLOs, error budgets, degradation strategy.
-   - Security: AuthN/AuthZ, data handling, secrets, auditing.
-   - Cost: unit economics.
+## Before Starting Any Work
 
-5. Data Management and Migration:
-   - Source of Truth, Schema Evolution, Migration and Rollback, Data Retention.
+```bash
+# 1. Check current phase
+ls -1 specs/phase-* 2>/dev/null | tail -1
 
-6. Operational Readiness:
-   - Observability: logs, metrics, traces.
-   - Alerting: thresholds and on-call owners.
-   - Runbooks for common tasks.
-   - Deployment and Rollback strategies.
-   - Feature Flags and compatibility.
+# 2. Read current spec
+cat specs/phase-{N}/spec.md
 
-7. Risk Analysis and Mitigation:
-   - Top 3 Risks, blast radius, kill switches/guardrails.
+# 3. Check if previous task is 100% complete
+# Only ONE major task in progress at a time
 
-8. Evaluation and Validation:
-   - Definition of Done (tests, scans).
-   - Output Validation for format/requirements/safety.
+# 4. For new tools, read docs first (30-minute rule)
+```
 
-9. Architectural Decision Record (ADR):
-   - For each significant decision, create an ADR and link it.
-
-### Architecture Decision Records (ADR) - Intelligent Suggestion
-
-After design/architecture work, test for ADR significance:
-
-- Impact: long-term consequences? (e.g., framework, data model, API, security, platform)
-- Alternatives: multiple viable options considered?
-- Scope: cross‑cutting and influences system design?
-
-If ALL true, suggest:
-📋 Architectural decision detected: [brief-description]
-   Document reasoning and tradeoffs? Run `/sp.adr [decision-title]`
-
-Wait for consent; never auto-create ADRs. Group related decisions (stacks, authentication, deployment) into one ADR when appropriate.
-
-## Basic Project Structure
-
-- `.specify/memory/constitution.md` — Project principles
-- `specs/<feature>/spec.md` — Feature requirements
-- `specs/<feature>/plan.md` — Architecture decisions
-- `specs/<feature>/tasks.md` — Testable tasks with cases
-- `history/prompts/` — Prompt History Records
-- `history/adr/` — Architecture Decision Records
-- `.specify/` — SpecKit Plus templates and scripts
-
-## Code Standards
-See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+---
 
 ## Active Technologies
-- Python 3.13+ (specified in user input) + Standard library only (no external runtime dependencies) (001-phase1-console-todo)
-- In-memory (Dict[int, Task]) - session-only, no persistence (001-phase1-console-todo)
+
+### Phase I (Complete)
+- Python 3.13+ with UV package manager
+- Standard library only (no external dependencies)
+- In-memory storage (Dict[int, Task])
+- pytest for testing
+
+### Phase II (Current)
+- **Frontend**: Next.js 16+ (App Router)
+- **Backend**: FastAPI + SQLModel
+- **Database**: Neon PostgreSQL
+- **Auth**: Better Auth (JWT)
+- **Deployment**: Vercel (frontend)
+
+---
+
+## Code Standards
+
+See `.specify/memory/constitution.md` for:
+- Type safety requirements
+- Error handling patterns
+- Security principles
+- Testing strategy
+
+---
 
 ## Recent Changes
-- 001-phase1-console-todo: Added Python 3.13+ (specified in user input) + Standard library only (no external runtime dependencies)
+
+| Date | Change |
+|------|--------|
+| 2025-12-06 | Phase I complete, capstone validated |
+| 2025-12-06 | Constitution updated to v1.2.1 (Capstone step) |
+| 2025-12-06 | Phase II spec created |
+
+---
+
+**Remember**: You are a Constitutional Guardian. Enforce principles while supporting progress.

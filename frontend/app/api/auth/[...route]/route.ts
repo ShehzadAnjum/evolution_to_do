@@ -1,0 +1,106 @@
+import { toNextJsHandler } from "better-auth/next-js";
+
+/**
+ * Better-Auth API route handler
+ * 
+ * This catch-all route handles all authentication endpoints:
+ * - /api/auth/sign-in
+ * - /api/auth/sign-up
+ * - /api/auth/sign-out
+ * - /api/auth/session
+ * - /api/auth/callback/google
+ * - And all other Better-Auth endpoints
+ * 
+ * The route pattern [...route] catches all paths under /api/auth/*
+ * 
+ * Dynamic import prevents build-time evaluation of auth config.
+ * In development, we modify the baseURL dynamically to handle port changes.
+ */
+export const dynamic = "force-dynamic";
+
+// Cache handlers per baseURL to avoid recreating auth instances
+const handlerCache = new Map<string, ReturnType<typeof toNextJsHandler>>();
+
+async function getAuthHandler(request: Request) {
+  // In development, detect the actual port from the request
+  let baseURL: string;
+  
+  if (process.env.NODE_ENV === "development") {
+    const origin = new URL(request.url).origin;
+    // Only use request origin for localhost (handles dynamic ports like 3001)
+    if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+      baseURL = origin;
+    } else {
+      // Use default from env for non-localhost
+      const { env } = await import("@/lib/auth/config/env");
+      baseURL = env.BETTER_AUTH_URL;
+    }
+  } else {
+    // In production, use the configured baseURL
+    const { env } = await import("@/lib/auth/config/env");
+    baseURL = env.BETTER_AUTH_URL;
+  }
+
+  // Return cached handler if available
+  if (handlerCache.has(baseURL)) {
+    return handlerCache.get(baseURL)!;
+  }
+
+  // Create new auth instance with dynamic baseURL
+  // Import auth config components dynamically
+  const { betterAuth } = await import("better-auth");
+  const { env } = await import("@/lib/auth/config/env");
+  const { db } = await import("@/lib/auth/adapters/db-adapter");
+
+  const hasGoogleCredentials = env.GOOGLE_CLIENT_ID &&
+                               env.GOOGLE_CLIENT_ID.length > 0 &&
+                               env.GOOGLE_CLIENT_SECRET &&
+                               env.GOOGLE_CLIENT_SECRET.length > 0;
+
+  const authConfig: Parameters<typeof betterAuth>[0] = {
+    baseURL,
+    secret: env.BETTER_AUTH_SECRET,
+    database: db,
+    emailAndPassword: {
+      enabled: true,
+    },
+    originCheck: false,
+  };
+
+  // Add Google OAuth if credentials are provided
+  if (hasGoogleCredentials) {
+    authConfig.socialProviders = {
+      google: {
+        clientId: env.GOOGLE_CLIENT_ID!,
+        clientSecret: env.GOOGLE_CLIENT_SECRET!,
+        prompt: "select_account",
+        mapProfileToUser: (profile: any) => {
+          return {
+            name: profile.name || profile.email?.split("@")[0] || undefined,
+            email: profile.email,
+            image: profile.picture || undefined,
+          };
+        },
+      },
+    };
+  }
+
+  const auth = betterAuth(authConfig);
+  const handler = toNextJsHandler(auth.handler);
+  
+  // Cache the handler for this baseURL
+  handlerCache.set(baseURL, handler);
+  
+  return handler;
+}
+
+export async function GET(request: Request) {
+  const handler = await getAuthHandler(request);
+  return handler.GET(request);
+}
+
+export async function POST(request: Request) {
+  const handler = await getAuthHandler(request);
+  return handler.POST(request);
+}
+
