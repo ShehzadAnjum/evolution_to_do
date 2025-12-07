@@ -65,7 +65,6 @@ async function getAuthHandler(request: Request) {
     emailAndPassword: {
       enabled: true,
     },
-    originCheck: false,
   };
 
   // Add Google OAuth if credentials are provided
