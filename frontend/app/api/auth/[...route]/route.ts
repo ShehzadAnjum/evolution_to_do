@@ -33,12 +33,13 @@ async function getAuthHandler(request: Request) {
     } else {
       // Use default from env for non-localhost
       const { env } = await import("@/lib/auth/config/env");
-      baseURL = env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      baseURL = (env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") as string;
     }
   } else {
     // In production, use the configured baseURL
     const { env } = await import("@/lib/auth/config/env");
-    baseURL = env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    const requestOrigin = new URL(request.url).origin;
+    baseURL = (env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? requestOrigin) as string;
   }
 
   // Return cached handler if available
