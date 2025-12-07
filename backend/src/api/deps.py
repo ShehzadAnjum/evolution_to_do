@@ -50,7 +50,13 @@ async def get_current_user_id(
         # Try multiple claim names for user ID (for compatibility)
         user_id: str = payload.get("sub") or payload.get("userId") or payload.get("user_id")
         if user_id is None:
+            print(f"⚠️  JWT payload missing user ID. Payload keys: {list(payload.keys())}")
             raise credentials_exception
         return user_id
-    except (JWTError, ValueError):
+    except JWTError as e:
+        print(f"⚠️  JWT validation failed: {type(e).__name__}: {str(e)}")
+        print(f"⚠️  Using secret: {settings.better_auth_secret[:20]}... (first 20 chars)")
+        raise credentials_exception
+    except ValueError as e:
+        print(f"⚠️  JWT decode error: {str(e)}")
         raise credentials_exception

@@ -33,4 +33,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()
+    settings = Settings()
+    # Log the secret (first 20 chars only) for debugging
+    secret_preview = settings.better_auth_secret[:20] if len(settings.better_auth_secret) > 20 else settings.better_auth_secret
+    print(f"✅ Loaded settings - BETTER_AUTH_SECRET: {secret_preview}... (length: {len(settings.better_auth_secret)})")
+    return settings

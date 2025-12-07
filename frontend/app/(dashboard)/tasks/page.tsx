@@ -30,24 +30,35 @@ export default function TasksPage() {
       const token = await getAuthToken();
       if (!token) {
         setError("Please log in to view your tasks.");
+        console.error("No JWT token received from /api/auth/token");
         return;
       }
 
+      console.log("Got JWT token, fetching tasks...");
       const response = await api.getTasks(token);
       setTasks(response.tasks);
       setTotal(response.total);
       setCompleted(response.completed);
+      console.log("Tasks loaded successfully:", response);
     } catch (err: any) {
       // Handle authentication errors gracefully
+      console.error("Error loading tasks:", err);
+      
       if (err.statusCode === 401 || err.statusCode === 422) {
-        setError("Authentication required. Please log in to view your tasks.");
-      } else if (err.statusCode === 0) {
-        setError("Cannot connect to server. Is the backend running on port 8000?");
+        setError(
+          "Authentication required. Please log in to view your tasks. " +
+          "(Tip: Check that BETTER_AUTH_SECRET matches between frontend and backend)"
+        );
+      } else if (err.statusCode === 0 || err.message?.includes("Failed to fetch")) {
+        setError(
+          "Cannot connect to backend server. " +
+          "Is the backend running on port 8000? " +
+          `Check: ${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/health`
+        );
       } else {
         const errorMessage = err.message || "Failed to load tasks";
-        setError(errorMessage);
+        setError(`Error: ${errorMessage}`);
       }
-      console.error("Error loading tasks:", err);
     } finally {
       setLoading(false);
     }

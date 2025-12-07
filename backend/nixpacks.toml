@@ -1,0 +1,15 @@
+# Nixpacks configuration for Railway deployment
+[phases.setup]
+nixPkgs = ["python313"]
+
+[phases.install]
+cmds = ["pip install uv", "uv sync"]
+
+[phases.build]
+cmds = ["echo 'Build phase complete'"]
+
+[start]
+cmd = "uv run python -m uvicorn src.api.main:app --host 0.0.0.0 --port $PORT"
+
+[variables]
+PORT = "8000"

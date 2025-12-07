@@ -29,6 +29,7 @@ const authConfig: Parameters<typeof betterAuth>[0] = {
     enabled: true, // Enable email/password authentication
   },
   // Disable origin check for development
+  // This allows any localhost port (e.g., 3000, 3001, etc.)
   originCheck: false,
 };
 

@@ -33,8 +33,10 @@ const getBaseURL = () => {
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL;
   }
-  // Default to 3000
-  // Note: If Next.js uses a different port, update BETTER_AUTH_URL in .env.local
+  // In development, use localhost:3000 as default (or whatever port Next.js is using)
+  // Note: The actual request origin will be validated separately via trustedOrigins
+  // Note: If Next.js uses a different port, either set BETTER_AUTH_URL in .env.local
+  // or ensure Google OAuth redirect URI includes that port
   return "http://localhost:3000";
 };
 
