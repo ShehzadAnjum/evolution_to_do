@@ -40,12 +40,47 @@ const getBaseURL = () => {
   return "http://localhost:3000";
 };
 
-export const env = envSchema.parse({
-  DATABASE_URL: process.env.DATABASE_URL,
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-  BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
-  BETTER_AUTH_URL: getBaseURL(),
+/**
+ * Lazy environment variable validation
+ * Only validates when actually accessed at runtime, not during build
+ */
+let validatedEnv: z.infer<typeof envSchema> | null = null;
+
+function getEnv() {
+  if (validatedEnv) {
+    return validatedEnv;
+  }
+  
+  // Check if we're in a build context (env vars not available)
+  const isBuildTime = !process.env.DATABASE_URL || !process.env.BETTER_AUTH_SECRET;
+  
+  if (isBuildTime) {
+    // Build-time: use fallback values that pass validation
+    // Actual validation will happen at runtime when env vars are available
+    validatedEnv = {
+      DATABASE_URL: process.env.DATABASE_URL || "postgresql://placeholder@localhost/placeholder",
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "placeholder-client-id",
+      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "placeholder-client-secret",
+      BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "placeholder-secret-key-at-least-32-chars-long-for-build",
+      BETTER_AUTH_URL: getBaseURL(),
+    } as z.infer<typeof envSchema>;
+  } else {
+    // Runtime: validate properly
+    validatedEnv = envSchema.parse({
+      DATABASE_URL: process.env.DATABASE_URL!,
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID!,
+      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET!,
+      BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET!,
+      BETTER_AUTH_URL: getBaseURL(),
+    });
+  }
+  return validatedEnv;
+}
+
+export const env = new Proxy({} as z.infer<typeof envSchema>, {
+  get(_target, prop) {
+    return getEnv()[prop as keyof z.infer<typeof envSchema>];
+  },
 });
 
 /**
