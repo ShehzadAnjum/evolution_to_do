@@ -1,9 +1,9 @@
 # Nixpacks configuration for Railway deployment
 [phases.setup]
-nixPkgs = ["python313"]
+nixPkgs = ["python313", "curl"]
 
 [phases.install]
-cmds = ["pip install uv", "uv sync"]
+cmds = ["curl -LsSf https://astral.sh/uv/install.sh | sh", "uv sync"]
 
 [phases.build]
 cmds = ["echo 'Build phase complete'"]
