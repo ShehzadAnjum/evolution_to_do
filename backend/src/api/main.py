@@ -13,13 +13,19 @@ from .config import get_settings
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown."""
     # Startup: Initialize database tables
-    print("🚀 Starting FastAPI application...")
+    import os
+    port = os.environ.get("PORT", "NOT_SET")
+    print(f"🚀 Starting FastAPI application...")
+    print(f"🔍 DEBUG: PORT environment variable = {port}")
+    print(f"🔍 DEBUG: All PORT-related env vars: {[k for k in os.environ.keys() if 'PORT' in k]}")
     try:
         init_db()
         print("✅ Database initialized")
     except Exception as e:
         print(f"⚠️  Warning: Database initialization failed: {e}")
         print("   Tables may need to be created manually")
+        import traceback
+        traceback.print_exc()
 
     yield
 
