@@ -25,10 +25,22 @@ const authConfig: Parameters<typeof betterAuth>[0] = {
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: db, // Neon Pool - Better-Auth detects PostgreSQL and creates adapter internally
+  basePath: "/api/auth", // Explicit base path (matches API route)
   emailAndPassword: {
     enabled: true, // Enable email/password authentication
   },
-  // Note: Better-Auth handles origin validation automatically based on baseURL
+  // Trusted origins for CORS and preview deployments
+  trustedOrigins: [
+    env.BETTER_AUTH_URL,
+    "https://*.vercel.app", // Wildcard for Vercel preview URLs
+  ].filter(Boolean) as string[],
+  // Production OAuth configuration for Vercel
+  // Note: Better Auth v1.4.5 handles cookie security automatically based on NODE_ENV
+  // In production (HTTPS), cookies are automatically secure and httpOnly
+  advanced: {
+    // Enable secure cookies in production
+    useSecureCookies: process.env.NODE_ENV === "production",
+  },
 };
 
 // Only add Google OAuth if credentials are provided
@@ -37,6 +49,8 @@ if (hasGoogleCredentials) {
     google: {
       clientId: env.GOOGLE_CLIENT_ID!,
       clientSecret: env.GOOGLE_CLIENT_SECRET!,
+      // Explicit callback URL for Vercel (avoids auto-detection issues)
+      redirectURI: `${env.BETTER_AUTH_URL}/api/auth/callback/google`,
       // Force Google to show account selection screen every time
       // This ensures users can choose a different account after logout
       // According to Better Auth docs, prompt can be set directly on the provider
