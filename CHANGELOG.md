@@ -13,6 +13,49 @@ Version format: MAJOR.MINOR.PATCH (mm.nnn.ooo)
 
 ---
 
+## [02.004.000] - 2025-12-10
+
+### Added
+- **14 Subagents**: Complete narrow specialist subagent framework
+  - spec-constitution-enforcer: Validates code against specs
+  - task-planner: Breaks specs into actionable tasks
+  - api-endpoint-implementer: Implements REST endpoints
+  - db-schema-migration-specialist: Handles database changes
+  - ui-component-implementer: Creates React components
+  - better-auth-jwt-integrator: Sets up authentication
+  - mcp-tools-implementer: Creates MCP tools
+  - chat-agent-behavior-tuner: Refines AI system prompts
+  - dockerfile-creator: Writes optimized Dockerfiles
+  - helm-k8s-manifests-writer: Generates K8s manifests
+  - k8s-troubleshooter: Debugs Kubernetes issues
+  - vercel-sanitizer: Scans for Vercel incompatibilities
+  - test-generator: Generates test cases
+  - git-hygiene-subagent: Pre-commit validation
+- **9 Skills**: Complete reusable knowledge block framework
+  - spec-kit-monorepo: SpecKit and monorepo patterns
+  - neon-sqlmodel: Neon PostgreSQL with SQLModel
+  - better-auth-jwt: Authentication integration
+  - mcp-crud-design: MCP tool patterns
+  - chatkit-integration: ChatKit UI setup
+  - docker-minikube: Docker and local K8s
+  - kafka-dapr-patterns: Event-driven architecture
+  - vercel-deployment: Vercel deployment guide
+  - git-workflow: Git conventions and workflow
+
+### Changed
+- **Reusable Intelligence**: Complete agent/subagent/skill framework operational
+- **Compliance**: ~95% constitutional compliance achieved
+
+### Phase
+- Phase II: Full-stack web application with authentication
+
+### Notes
+- All 14 subagents from constitutional requirements implemented
+- All 9 skills covering all phases implemented
+- Ready for Priority 4 (infra/ directory structure)
+
+---
+
 ## [02.003.000] - 2025-12-09
 
 ### Added
