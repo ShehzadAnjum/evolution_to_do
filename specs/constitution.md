@@ -1,31 +1,28 @@
 <!--
 ================================================================================
-SYNC IMPACT REPORT - Constitution v1.2.1 Capstone Workflow Step Added
+SYNC IMPACT REPORT - Constitution v1.3.0 Reusable Intelligence Transparency
 ================================================================================
-Date: 2025-12-06
-Version: 1.2.0 → 1.2.1 (PATCH bump)
-Action: Add Capstone step to Spec-Driven Development workflow per SPECKIT_DOS_AND_DONTS.md
+Date: 2025-12-10
+Version: 1.2.1 → 1.3.0 (MINOR bump)
+Action: Add Principle IX requiring Claude to announce RI artifacts being used
 
 VERSION CHANGES:
-- Previous Version: 1.2.0
-- Current Version: 1.2.1
-- Version Bump Type: PATCH (clarification - added missing workflow step)
+- Previous Version: 1.2.1
+- Current Version: 1.3.0
+- Version Bump Type: MINOR (new principle added)
 
 CHANGES MADE:
+1. Added Principle IX: Reusable Intelligence Transparency
+2. Claude must announce which agents/subagents/skills are being used before tasks
+3. Claude must proactively suggest knowledge updates when discovering new patterns
+4. Claude must request permission before modifying any RI artifact
+
+PREVIOUS CHANGES (v1.2.1):
 1. Added Step 9: Capstone (Validation & Completion) to workflow
 2. Capstone step includes: validation against Spec, Plan, Constitution
 3. Aligns with SPECKIT_DOS_AND_DONTS.md workflow requirements
 
-PREVIOUS CHANGES (v1.2.0):
-1. Added Section 11: Governance - constitution management rules
-2. Added constitution amendment process via /sp.constitution
-3. Added version numbering rules (semantic versioning)
-4. Added prohibited/allowed actions for constitution changes
-5. Added sync requirements documentation
-6. Added PHR requirements for constitution amendments
-7. Updated Table of Contents to include Governance section
-
-PRINCIPLES (8 Non-Negotiable - UNCHANGED):
+PRINCIPLES (9 Non-Negotiable):
 1. Phase Boundaries Are HARD GATES
 2. Finish One Thing Before Starting Next
 3. Read Documentation First (30-Minute Rule)
@@ -34,8 +31,9 @@ PRINCIPLES (8 Non-Negotiable - UNCHANGED):
 6. Spec-Driven Development (AI Writes Code)
 7. Value-Driven Feature Development
 8. Quality Over Speed (But Achieve Both)
+9. Reusable Intelligence Transparency
 
-SPECKIT WORKFLOW (Updated):
+SPECKIT WORKFLOW:
 Constitution → Spec → Clarify (optional) → Plan → Tasks → Implementation → Capstone
 
 TEMPLATE SYNCHRONIZATION STATUS:
@@ -46,14 +44,15 @@ TEMPLATE SYNCHRONIZATION STATUS:
 ✅ .specify/templates/adr-template.md - Use via /sp.adr
 
 FILES UPDATED:
-✅ .specify/memory/constitution.md - This file (Capstone step added)
+✅ specs/constitution.md - This file (Principle IX added)
 
 COMMIT MESSAGE SUGGESTION:
-docs: amend constitution to v1.2.1 (add Capstone workflow step)
+docs: amend constitution to v1.3.0 (add Principle IX - RI Transparency)
 
-- Added Step 9: Capstone (Validation & Completion) to workflow
-- Aligns with SPECKIT_DOS_AND_DONTS.md requirements
-- Version bump: 1.2.0 → 1.2.1 (PATCH - workflow clarification)
+- Added Principle IX: Reusable Intelligence Transparency
+- Claude must announce which agents/subagents/skills are being used
+- Claude must suggest knowledge updates when discovering new patterns
+- Version bump: 1.2.1 → 1.3.0 (MINOR - new principle)
 
 ================================================================================
 -->
@@ -61,8 +60,8 @@ docs: amend constitution to v1.2.1 (add Capstone workflow step)
 # Evolution of Todo: Project Constitution
 
 **Created**: December 4, 2025
-**Version**: 1.2.1
-**Last Amended**: 2025-12-06
+**Version**: 1.3.0
+**Last Amended**: 2025-12-10
 **Project**: Hackathon II - The Evolution of Todo
 **Objective**: Master Spec-Driven Development & Cloud Native AI (1000 points target)
 
@@ -1393,6 +1392,48 @@ Skipping this checklist for better-auth cost 6-8 hours debugging.
 
 ### Level 3: AI Agent Reminders (Claude Code Integration)
 
+#### Principle IX: Reusable Intelligence Transparency
+
+**Rule**: Claude MUST be transparent about which Reusable Intelligence artifacts are being used and MUST proactively suggest updates when new knowledge is discovered.
+
+**Claude's Transparency Requirements**:
+
+1. **Announce Before Tasks**: Before performing any significant task, Claude MUST state which agents, subagents, and/or skills are being utilized.
+
+   Example:
+   ```
+   📋 Using: backend-service agent, api-endpoint-implementer subagent, neon-sqlmodel skill
+
+   I'm about to implement the task list endpoint...
+   ```
+
+2. **Proactively Suggest Updates**: When Claude discovers new patterns, learns something reusable, or identifies gaps in existing knowledge artifacts, Claude MUST ask the user if they want to update the relevant artifact.
+
+   Example:
+   ```
+   💡 Knowledge Update Opportunity
+
+   I just discovered that SQLite requires StaticPool with check_same_thread=False
+   for FastAPI testing.
+
+   This pattern should be added to:
+   - `.claude/skills/neon-sqlmodel.md` (testing section)
+   - `.claude/subagents/test-generator.md` (database test patterns)
+
+   Would you like me to update these artifacts?
+   ```
+
+3. **Request Before Modification**: Claude MUST NOT modify any Reusable Intelligence artifact (agents, subagents, skills, constitution) without explicit user approval.
+
+**User's Role**:
+- Review Claude's suggestions for relevance
+- Approve or reject knowledge updates
+- Trigger formal updates via `/sp.*` commands when appropriate
+
+**Enforcement**: Claude will include artifact usage in task responses and prompt for updates when new knowledge emerges.
+
+---
+
 **Instructions for Claude Code** (added to `CLAUDE.md`):
 
 ```markdown
@@ -2271,8 +2312,8 @@ git commit -m "docs: constitutional override - [reason]"
 
 ---
 
-**Constitution Version**: 1.2.1
-**Last Updated**: 2025-12-06
+**Constitution Version**: 1.3.0
+**Last Updated**: 2025-12-10
 **Status**: ACTIVE
 **Next Review**: After Phase II completion
 **SpecKit Integration**: MANDATORY - All specs/plans/tasks via /sp.* commands
