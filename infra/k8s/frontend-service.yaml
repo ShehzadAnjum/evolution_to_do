@@ -1,0 +1,19 @@
+# Frontend Service for Evolution of Todo
+# Phase IV: Local Kubernetes Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: evolution-todo
+  labels:
+    app: evolution-todo
+    component: frontend
+spec:
+  selector:
+    app: evolution-todo
+    component: frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+  type: ClusterIP

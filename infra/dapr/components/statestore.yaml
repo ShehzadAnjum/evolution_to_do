@@ -1,0 +1,22 @@
+# Dapr State Store Component for Evolution of Todo
+# Phase V: State Management
+#
+# Note: For this project, primary state is in Neon PostgreSQL.
+# This state store is for Dapr-specific state (actor state, workflow state).
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: statestore
+  namespace: evolution-todo
+spec:
+  type: state.postgresql
+  version: v1
+  metadata:
+    - name: connectionString
+      secretKeyRef:
+        name: evolution-todo-secrets
+        key: database-url
+    - name: tableName
+      value: "dapr_state"
+    - name: metadataTableName
+      value: "dapr_metadata"

@@ -1,0 +1,19 @@
+# Backend Service for Evolution of Todo
+# Phase IV: Local Kubernetes Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: evolution-todo
+  labels:
+    app: evolution-todo
+    component: backend
+spec:
+  selector:
+    app: evolution-todo
+    component: backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  type: ClusterIP

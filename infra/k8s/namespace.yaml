@@ -1,0 +1,9 @@
+# Kubernetes Namespace for Evolution of Todo
+# Phase IV: Local Kubernetes Deployment
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: evolution-todo
+  labels:
+    app: evolution-todo
+    phase: "4"
