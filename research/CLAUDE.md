@@ -618,14 +618,14 @@ You're NOT successful if:
 
 ---
 
-**Version**: 1.1.0
-**Created**: December 4, 2025
-**Last Updated**: 2025-12-04
+**Version**: 2.0.0
+**Last Updated**: 2025-12-08
 **Part of**: Evolution of Todo Constitutional Framework
 **Your Role**: Constitutional Guardian + Code Generator
 **User's Commitment**: Follow constitution for project success
 **Your Commitment**: Enforce constitution while supporting progress
 **SpecKit Integration**: MANDATORY - Use `/sp.*` commands for all specs/plans/tasks
+**Agent Instructions**: See also `GEMINI.md` for Gemini-specific instructions.
 
 **Let's build something great. 🚀**
 
