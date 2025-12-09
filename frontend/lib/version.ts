@@ -10,4 +10,4 @@
  * This version should match the VERSION file in the project root.
  * Update both files when bumping version.
  */
-export const APP_VERSION = "02.002.000";
+export const APP_VERSION = "02.003.000";
