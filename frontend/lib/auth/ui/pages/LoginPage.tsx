@@ -5,6 +5,7 @@ import { AuthForm, type AuthMode } from "../components/AuthForm";
 import { SocialButtons } from "../components/SocialButtons";
 import { authClient } from "../../core/client";
 import { useRouter } from "next/navigation";
+import { APP_VERSION } from "@/lib/version";
 
 /**
  * LoginPage Component
@@ -114,6 +115,11 @@ export function LoginPage() {
         <div className="mt-6 text-center text-xs text-muted-foreground">
           By continuing, you agree to our Terms of Service and Privacy Policy
         </div>
+      </div>
+
+      {/* Version display - bottom right */}
+      <div className="fixed bottom-4 right-4 text-xs text-muted-foreground/60 font-mono">
+        v{APP_VERSION}
       </div>
     </div>
   );
