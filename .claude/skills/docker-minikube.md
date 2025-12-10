@@ -321,6 +321,77 @@ minikube dashboard
 | CrashLoopBackOff | Check logs: kubectl logs pod-name |
 | Connection refused | Verify service selector matches pod labels |
 | Ingress not working | Check: minikube addons enable ingress |
+| Health check 404 | Verify health endpoint path (e.g., `/health` not `/api/health`) |
+| Auth not working | Need real DATABASE_URL - placeholder secrets won't work |
+| exec format error | Architecture mismatch - delete minikube and recreate |
+| Docker permission denied | Run: `sudo usermod -aG docker $USER && newgrp docker` |
+
+## Lessons Learned (Phase IV - Dec 2025)
+
+### 1. Loading Local Images into Minikube
+```bash
+# DON'T use eval $(minikube docker-env) for pre-built images
+# DO use minikube image load for existing images
+minikube image load evolution-todo-backend:dev
+minikube image load evolution-todo-frontend:dev
+
+# Verify images are in minikube
+minikube image ls | grep evolution
+```
+
+### 2. Image Repository in K8s Manifests
+When loading local images, use full docker.io path:
+```yaml
+# In Helm values or manifests:
+image:
+  repository: docker.io/library/evolution-todo-backend
+  tag: dev
+  pullPolicy: Never  # CRITICAL for local images
+```
+
+### 3. Next.js Standalone Output for Docker
+```javascript
+// next.config.js - REQUIRED for Docker
+const nextConfig = {
+  output: 'standalone',  // Creates minimal server.js
+}
+```
+
+### 4. Multi-Stage Dockerfile Pattern
+```dockerfile
+# Stage 1: Build
+FROM python:3.13-slim AS builder
+# Install build tools, dependencies
+
+# Stage 2: Production (smaller image)
+FROM python:3.13-slim AS production
+# Only copy what's needed from builder
+COPY --from=builder /usr/local/lib/python3.13/site-packages ...
+```
+
+### 5. Expected Behavior with Placeholder Secrets
+- Containers will run (pods 1/1 READY)
+- Health checks will pass
+- Auth will NOT work (needs real DATABASE_URL)
+- This proves containerization works - goal of Phase IV
+
+### 6. Port Forwarding vs Ingress
+```bash
+# Quick testing (no ingress needed):
+kubectl port-forward svc/evolution-todo-frontend 3000:3000 -n evolution-todo
+
+# For ingress, add to /etc/hosts:
+echo "$(minikube ip) evolution-todo.local" | sudo tee -a /etc/hosts
+```
+
+### 7. WSL2 Docker Installation
+Docker Desktop alternative for WSL2:
+```bash
+# Install Docker directly in WSL2
+sudo apt install docker.io
+sudo usermod -aG docker $USER
+newgrp docker  # Apply group change without logout
+```
 
 ## Anti-Patterns
 
