@@ -27,6 +27,8 @@ export const config = {
     "/dashboard/:path*",
     "/app/:path*",
     "/account/:path*",
+    "/tasks/:path*",
+    "/chat/:path*",
   ],
 };
 
