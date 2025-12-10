@@ -265,6 +265,39 @@ GOOGLE_CLIENT_SECRET=xxx
 | OAuth redirect loop | Verify trustedOrigins includes domain |
 | Session not persisting | Check cookie settings |
 | Token expired | Implement token refresh |
+| **Post-login redirect loop on Vercel** | **Check BOTH cookie names in middleware (see below)** |
+
+### CRITICAL: Secure Cookie Names in Production
+
+**This fix saved 8+ hours of debugging.**
+
+When `useSecureCookies: true` (automatic in production/HTTPS), Better Auth prefixes cookies with `__Secure-`:
+
+| Environment | Cookie Name |
+|-------------|-------------|
+| Development (HTTP) | `better-auth.session_token` |
+| Production (HTTPS) | `__Secure-better-auth.session_token` |
+
+**Middleware MUST check both:**
+
+```typescript
+// frontend/lib/auth/http/middleware.ts
+export function hasSessionCookie(request: NextRequest): boolean {
+  // Check BOTH cookie names!
+  const devCookie = request.cookies.get("better-auth.session_token");
+  const secureCookie = request.cookies.get("__Secure-better-auth.session_token");
+  return !!(devCookie || secureCookie);
+}
+```
+
+**Why this matters:**
+1. User logs in on Vercel (HTTPS)
+2. Better Auth sets `__Secure-better-auth.session_token`
+3. Middleware checks only `better-auth.session_token` → not found!
+4. Middleware thinks user isn't authenticated → redirects to login
+5. **Infinite redirect loop**
+
+See: `history/prompts/001-ai-chatbot-mcp/0004-better-auth-secure-cookies-fix.fix.prompt.md`
 
 ## Anti-Patterns
 
