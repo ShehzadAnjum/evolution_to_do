@@ -1,0 +1,307 @@
+# MCP Tools Contract: Phase III AI Chatbot
+# Version: 1.0.0
+# Date: 2025-12-10
+
+# This file defines the MCP tool schemas that will be exposed by the MCP server.
+# These tools enable the AI agent to manage tasks on behalf of authenticated users.
+
+tools:
+  - name: add_task
+    description: Create a new task for the current user
+    inputSchema:
+      type: object
+      properties:
+        title:
+          type: string
+          description: The title of the task (required)
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          description: Optional detailed description of the task
+          maxLength: 1000
+      required:
+        - title
+    output:
+      type: object
+      properties:
+        success:
+          type: boolean
+        task:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            description:
+              type: string
+            is_complete:
+              type: boolean
+            created_at:
+              type: string
+              format: date-time
+        message:
+          type: string
+
+  - name: list_tasks
+    description: List all tasks for the current user, optionally filtered by completion status
+    inputSchema:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Filter by task status
+          enum:
+            - all
+            - complete
+            - incomplete
+          default: all
+        limit:
+          type: integer
+          description: Maximum number of tasks to return
+          minimum: 1
+          maximum: 100
+          default: 50
+      required: []
+    output:
+      type: object
+      properties:
+        success:
+          type: boolean
+        tasks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              title:
+                type: string
+              description:
+                type: string
+              is_complete:
+                type: boolean
+              created_at:
+                type: string
+                format: date-time
+        total_count:
+          type: integer
+        message:
+          type: string
+
+  - name: get_task
+    description: Get details of a specific task by ID or title
+    inputSchema:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          description: The UUID of the task
+        title:
+          type: string
+          description: The title of the task (case-insensitive search)
+      # At least one of task_id or title is required
+    output:
+      type: object
+      properties:
+        success:
+          type: boolean
+        task:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            description:
+              type: string
+            is_complete:
+              type: boolean
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+        message:
+          type: string
+
+  - name: update_task
+    description: Update an existing task's title or description
+    inputSchema:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          description: The UUID of the task to update
+        title:
+          type: string
+          description: Identify task by title (if task_id not provided)
+        new_title:
+          type: string
+          description: New title for the task
+          minLength: 1
+          maxLength: 255
+        new_description:
+          type: string
+          description: New description for the task
+          maxLength: 1000
+      # At least task_id or title required, plus at least one of new_title or new_description
+    output:
+      type: object
+      properties:
+        success:
+          type: boolean
+        task:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            description:
+              type: string
+            is_complete:
+              type: boolean
+            updated_at:
+              type: string
+              format: date-time
+        message:
+          type: string
+
+  - name: delete_task
+    description: Delete a task permanently
+    inputSchema:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          description: The UUID of the task to delete
+        title:
+          type: string
+          description: Identify task by title (if task_id not provided)
+      # At least one of task_id or title required
+    output:
+      type: object
+      properties:
+        success:
+          type: boolean
+        deleted_task_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+
+  - name: complete_task
+    description: Mark a task as complete (or toggle completion status)
+    inputSchema:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          description: The UUID of the task to complete
+        title:
+          type: string
+          description: Identify task by title (if task_id not provided)
+        toggle:
+          type: boolean
+          description: If true, toggle the status; if false, set to complete
+          default: false
+      # At least one of task_id or title required
+    output:
+      type: object
+      properties:
+        success:
+          type: boolean
+        task:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            is_complete:
+              type: boolean
+        message:
+          type: string
+
+  - name: search_tasks
+    description: Search tasks by keyword in title or description
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+          description: Search query (searches in title and description)
+          minLength: 1
+          maxLength: 100
+        status:
+          type: string
+          description: Filter results by status
+          enum:
+            - all
+            - complete
+            - incomplete
+          default: all
+      required:
+        - query
+    output:
+      type: object
+      properties:
+        success:
+          type: boolean
+        tasks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              title:
+                type: string
+              description:
+                type: string
+              is_complete:
+                type: boolean
+              created_at:
+                type: string
+                format: date-time
+        match_count:
+          type: integer
+        message:
+          type: string
+
+# Error responses follow a consistent pattern
+error_schema:
+  type: object
+  properties:
+    success:
+      type: boolean
+      const: false
+    error_code:
+      type: string
+      enum:
+        - TASK_NOT_FOUND
+        - INVALID_INPUT
+        - PERMISSION_DENIED
+        - INTERNAL_ERROR
+    message:
+      type: string
+      description: Human-readable error message
+
+# Notes:
+# - All tools operate in the context of the authenticated user
+# - User isolation is enforced at the service layer (user_id from JWT)
+# - Tools that accept both task_id and title will prefer task_id if both provided
+# - Title-based lookups are case-insensitive and use partial matching

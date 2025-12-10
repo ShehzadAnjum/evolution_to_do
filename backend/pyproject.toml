@@ -12,6 +12,8 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "python-dotenv>=1.0.0",
     "pydantic-settings>=2.6.0",
+    "mcp>=1.23.3",
+    "openai>=2.9.0",
 ]
 
 [project.scripts]

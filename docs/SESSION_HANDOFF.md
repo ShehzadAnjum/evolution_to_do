@@ -4,7 +4,7 @@
 **Updated By**: AI Assistant (Claude Code)
 **Current Phase**: III (Phase III - AI Chatbot Integration)
 **Current Branch**: main
-**Current Version**: 03.000.000
+**Current Version**: 03.001.000
 
 ---
 
@@ -12,26 +12,32 @@
 
 ### Current State
 - 🟢 Complete: Phase II SIGNED OFF - 137 tests passing, deployed
+- 🟢 Complete: Phase III MVP - Create Task via Chat working!
 - 🟢 Working: Complete 9-agent, 14-subagent, 9-skill RI framework
-- 🟡 Starting: Phase III - AI Chatbot with MCP tools
 - 🟡 Deferred: Google OAuth (email/password works, fix later)
 - 🔴 Blocked: None
 
 ### Last Session Summary
 - What accomplished:
-  - ✅ Phase II officially signed off
-  - ✅ Repository cleanup - 12 temporary docs removed
-  - ✅ Constitution amended to v1.3.0 (Principle IX - RI Transparency)
-  - ✅ All RI artifacts verified complete (9 agents, 14 subagents, 9 skills)
-  - ✅ Git repo sanitized and synced with GitHub
+  - ✅ **Phase III MVP Complete** - AI chat creates tasks via natural language
+  - ✅ MCP module structure (`backend/src/mcp/`)
+  - ✅ ToolExecutor bridges MCP tools to task database
+  - ✅ Chat API routes with JWT authentication
+  - ✅ OpenAI client wrapper (gpt-4o-mini)
+  - ✅ ChatService with function calling support
+  - ✅ Frontend chat components (MessageInput, MessageList, ChatInterface)
+  - ✅ Chat page at `/chat` route
+  - ✅ PHR-001: Pydantic Settings env vars lesson
+  - ✅ PHR-002: Unified UI Vision for second iteration
 - What learned:
-  - Google OAuth can be deferred - email/password meets hackathon requirements
-  - RI transparency principle ensures Claude announces which agents/skills are being used
+  - Pydantic Settings v2 requires ALL env vars defined in Settings class
+  - Use `get_settings().var_name` not `os.getenv()` for pydantic-settings
+  - User verified: "chat is working ok"
 - What's next (prioritized):
-  1. Read Phase III spec (`specs/phases/phase-3.md`)
-  2. Read AI-MCP agent (`/.claude/agents/ai-mcp.md`)
-  3. Create Phase III spec and plan using SpecKit
-  4. Begin MCP server implementation
+  1. Complete remaining Phase III user stories (list/update/delete/search via chat)
+  2. Add conversation history persistence
+  3. Add MCP/chat tests
+  4. Deploy Phase III to production
 
 ---
 

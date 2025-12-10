@@ -13,6 +13,40 @@ Version format: MAJOR.MINOR.PATCH (mm.nnn.ooo)
 
 ---
 
+## [03.001.000] - 2025-12-10
+
+### Added
+- **Phase III MVP**: AI chatbot creates tasks via natural language
+- **MCP Module Structure**: `backend/src/mcp/` with tool definitions
+- **ToolExecutor**: Bridges MCP tool calls to task database operations
+- **Chat API**: POST /api/chat endpoint with JWT authentication
+- **OpenAI Client**: Wrapper for gpt-4o-mini with function calling
+- **ChatService**: Handles conversation flow and tool execution
+- **Chat UI**: MessageInput, MessageList, ChatInterface components
+- **Chat Page**: /chat route with AI task assistant
+- **PHR-001**: Documented pydantic-settings env vars lesson
+- **PHR-002**: Captured unified UI vision for second iteration
+
+### MCP Tools Implemented
+- add_task: Create new task via natural language
+- list_tasks: Query user's tasks with filters
+- get_task: Get single task by ID
+- update_task: Modify existing task
+- delete_task: Remove task
+- complete_task: Mark task as complete
+- search_tasks: Search by keyword
+
+### Phase
+- Phase III: AI Chatbot with MCP Tools
+
+### Notes
+- User verified: "chat is working ok"
+- All 7 MCP tools functional
+- 108 backend tests passing
+- Frontend builds successfully
+
+---
+
 ## [03.000.000] - 2025-12-10
 
 ### Changed
