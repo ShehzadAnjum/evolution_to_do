@@ -1,0 +1,80 @@
+# Default values for evolution-todo
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  namespace: evolution-todo
+
+# Backend configuration
+backend:
+  replicaCount: 1
+  image:
+    repository: evolution-todo-backend
+    tag: dev
+    pullPolicy: Never  # Use local image in minikube
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  probes:
+    readiness:
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    liveness:
+      path: /health
+      initialDelaySeconds: 15
+      periodSeconds: 20
+
+# Frontend configuration
+frontend:
+  replicaCount: 1
+  image:
+    repository: evolution-todo-frontend
+    tag: dev
+    pullPolicy: Never  # Use local image in minikube
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  probes:
+    readiness:
+      path: /
+      initialDelaySeconds: 10
+      periodSeconds: 10
+    liveness:
+      path: /
+      initialDelaySeconds: 20
+      periodSeconds: 20
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  host: evolution-todo.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+# Secrets (provide via --set or values file override)
+secrets:
+  databaseUrl: ""
+  betterAuthSecret: ""
+  openaiApiKey: ""
+
+# ConfigMap values
+config:
+  betterAuthUrl: "http://backend:8000"
+  corsOrigins: "http://frontend:3000,http://localhost:3000"
+  nextPublicApiUrl: "http://backend:8000"

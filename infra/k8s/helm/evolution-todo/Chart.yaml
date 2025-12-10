@@ -1,0 +1,15 @@
+apiVersion: v2
+name: evolution-todo
+description: A Helm chart for Evolution of Todo application
+type: application
+version: 0.1.0
+appVersion: "04.001.000"
+keywords:
+  - todo
+  - task-management
+  - ai-chatbot
+maintainers:
+  - name: Evolution Todo Team
+home: https://github.com/anjum/evolution-todo
+sources:
+  - https://github.com/anjum/evolution-todo

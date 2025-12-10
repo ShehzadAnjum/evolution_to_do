@@ -2,9 +2,9 @@
 
 **Last Updated**: 2025-12-10
 **Updated By**: AI Assistant (Claude Code)
-**Current Phase**: III COMPLETE - Ready for Phase IV
+**Current Phase**: IV COMPLETE - Local K8s Deployment
 **Current Branch**: main
-**Current Version**: 03.001.000
+**Current Version**: 04.001.000
 
 ---
 
@@ -13,27 +13,87 @@
 ### Current State
 - 🟢 Complete: Phase II SIGNED OFF - 137 tests passing, deployed
 - 🟢 Complete: Phase III - All 7 MCP tools working, chat deployed
-- 🟢 Complete: Google OAuth - Fixed via secure cookie handling
+- 🟢 Complete: Phase IV - Docker + Kubernetes + Helm
 - 🟢 Working: Complete 9-agent, 14-subagent, 9-skill RI framework
 - 🟡 Deferred: Conversation history persistence (2nd iteration)
 - 🔴 Blocked: None
 
 ### Last Session Summary
 - What accomplished:
-  - ✅ **Phase III COMPLETE** - All 7 MCP tools working via AI chat
-  - ✅ Fixed auth redirect loop (secure cookie prefix `__Secure-`)
-  - ✅ Fixed protected routes (`/chat`, `/tasks` now in protectedRoutes)
-  - ✅ Fixed post-login redirect (reads `?redirect=` param)
-  - ✅ Google OAuth NOW WORKING (same cookie fix)
-  - ✅ PHR-004: Better Auth secure cookie fix documented
-  - ✅ Updated better-auth-jwt.md skill with cookie troubleshooting
+  - ✅ **Phase IV COMPLETE** - Docker, Minikube, Helm deployment working
+  - ✅ Created Backend Dockerfile (multi-stage, Python 3.13)
+  - ✅ Created Frontend Dockerfile (multi-stage, Node 20 standalone)
+  - ✅ Created docker-compose.local.yml for local development
+  - ✅ Created K8s base manifests (namespace, deployment, service, ingress)
+  - ✅ Created Helm chart with configurable values
+  - ✅ Installed kubectl, minikube, helm in ~/bin
+  - ✅ Deployed to Minikube - both pods running (1/1 READY)
+  - ✅ Ingress controller configured
 - What learned:
-  - Better Auth uses `__Secure-better-auth.session_token` in production (HTTPS)
-  - Middleware must check BOTH cookie names (dev + production)
-  - This fix alone saved 8+ hours of debugging
+  - Health endpoint at `/health` not `/api/health`
+  - Use `imagePullPolicy: Never` for local minikube images
+  - Use `minikube image load` to load Docker images into minikube
+  - Ingress controller takes time to initialize
 - What's next (prioritized):
-  1. **Phase IV**: Local K8s deployment (Docker, Minikube, Helm)
+  1. **Phase V**: Cloud K8s + Kafka/Dapr (if needed)
   2. Conversation history persistence (2nd iteration)
+
+---
+
+## Phase IV Completion Summary
+
+### What Was Built
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Backend Dockerfile | ✅ Complete | Multi-stage Python 3.13 build |
+| Frontend Dockerfile | ✅ Complete | Multi-stage Node 20 standalone |
+| Docker Compose | ✅ Complete | Local development compose file |
+| K8s Base Manifests | ✅ Complete | Namespace, deployments, services, ingress |
+| Helm Chart | ✅ Complete | Full chart with configurable values |
+| Minikube Deployment | ✅ Complete | Both pods running (1/1 READY) |
+
+### Key Files (Phase IV)
+- `infra/docker/backend.Dockerfile` - Backend container
+- `infra/docker/frontend.Dockerfile` - Frontend container
+- `infra/docker/docker-compose.local.yml` - Local dev compose
+- `infra/k8s/base-manifests/` - Plain K8s manifests
+- `infra/k8s/helm/evolution-todo/` - Helm chart
+
+### Commands to Deploy
+```bash
+# Load images into minikube
+minikube image load evolution-todo-backend:dev
+minikube image load evolution-todo-frontend:dev
+
+# Deploy with Helm
+helm install evolution-todo infra/k8s/helm/evolution-todo \
+  --namespace evolution-todo \
+  --set secrets.databaseUrl="..." \
+  --set secrets.betterAuthSecret="..." \
+  --set backend.image.repository="docker.io/library/evolution-todo-backend" \
+  --set frontend.image.repository="docker.io/library/evolution-todo-frontend"
+
+# Access via port-forward (alternative to ingress)
+kubectl port-forward svc/evolution-todo-frontend 3000:3000 -n evolution-todo
+kubectl port-forward svc/evolution-todo-backend 8000:8000 -n evolution-todo
+```
+
+### Expected Behavior (Auth in Local K8s)
+**Auth does NOT work with placeholder secrets** - this is expected:
+- Login/signup will fail because DATABASE_URL points to placeholder
+- Better Auth needs real Neon database to store/verify users
+- Health checks pass (`/health` returns 200 OK)
+- Frontend pages render correctly
+- **This proves containerization works** - the goal of Phase IV
+
+To test with real auth, provide actual secrets:
+```bash
+helm upgrade evolution-todo infra/k8s/helm/evolution-todo \
+  --set secrets.databaseUrl="postgresql://real-connection-string" \
+  --set secrets.betterAuthSecret="real-32-char-secret"
+```
+
+**Production auth works on Vercel/Railway** where real env vars are configured.
 
 ---
 
@@ -140,6 +200,7 @@ Before Dec 14, 11:59 PM:
 
 | Version | Phase | Description |
 |---------|-------|-------------|
+| 04.001.000 | IV | Phase IV Complete - Docker, K8s, Helm |
 | 03.001.000 | III | Phase III Complete - All 7 MCP tools |
 | 03.000.000 | III | Phase II→III transition |
 | 02.003.000 | II | 9-agent RI framework |

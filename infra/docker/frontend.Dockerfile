@@ -1,61 +1,62 @@
 # Frontend Dockerfile for Evolution of Todo
-# Phase IV: Local Kubernetes Deployment
-#
-# Build: docker build -f infra/docker/frontend.Dockerfile -t evolution-todo-frontend:latest ./frontend
-# Run: docker run -p 3000:3000 --env-file .env evolution-todo-frontend:latest
+# Multi-stage build for optimized production image
 
-# ============================================================
-# Dependencies Stage
-# ============================================================
-FROM node:22-alpine AS deps
+# ================================
+# Stage 1: Dependencies
+# ================================
+FROM node:20-alpine AS deps
 
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json* ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci --legacy-peer-deps
 
-# ============================================================
-# Build Stage
-# ============================================================
-FROM node:22-alpine AS builder
+# ================================
+# Stage 2: Builder
+# ================================
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy node_modules from deps
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy source files
-COPY . .
+# Copy source code
+COPY frontend/ ./
 
-# Set build-time environment variables
+# Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Build application
+# Create public directory if it doesn't exist (for Next.js standalone)
+RUN mkdir -p public
+
+# Build the application
 RUN npm run build
 
-# ============================================================
-# Production Stage
-# ============================================================
-FROM node:22-alpine AS production
+# ================================
+# Stage 3: Production Runner
+# ================================
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Create non-root user
+# Set environment variables
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000
+
+# Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Set environment
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-# Copy built application (standalone mode)
+# Copy public assets (may be empty)
 COPY --from=builder /app/public ./public
+
+# Set up standalone output directory
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
@@ -67,7 +68,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Run application
+# Run the application
 CMD ["node", "server.js"]

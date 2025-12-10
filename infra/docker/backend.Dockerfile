@@ -1,56 +1,69 @@
 # Backend Dockerfile for Evolution of Todo
-# Phase IV: Local Kubernetes Deployment
-#
-# Build: docker build -f infra/docker/backend.Dockerfile -t evolution-todo-backend:latest ./backend
-# Run: docker run -p 8000:8000 --env-file .env evolution-todo-backend:latest
+# Multi-stage build for smaller production image
 
-# ============================================================
-# Build Stage
-# ============================================================
+# ================================
+# Stage 1: Builder
+# ================================
 FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
-# Install uv for fast dependency management
-RUN pip install uv
+# Install system dependencies for building Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Install pip dependencies directly (simpler than uv for Docker)
+COPY backend/pyproject.toml ./
 
-# Install dependencies (production only)
-RUN uv sync --frozen --no-dev
+# Extract dependencies and install them
+RUN pip install --no-cache-dir \
+    "fastapi>=0.115.0" \
+    "uvicorn[standard]>=0.32.0" \
+    "sqlmodel>=0.0.22" \
+    "psycopg2-binary>=2.9.9" \
+    "python-jose[cryptography]>=3.3.0" \
+    "python-dotenv>=1.0.0" \
+    "pydantic-settings>=2.6.0" \
+    "mcp>=1.23.3" \
+    "openai>=2.9.0"
 
-# ============================================================
-# Production Stage
-# ============================================================
+# ================================
+# Stage 2: Production
+# ================================
 FROM python:3.13-slim AS production
 
 WORKDIR /app
 
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
-COPY src/ ./src/
-COPY main.py ./
+COPY backend/src ./src
+COPY backend/main.py ./
 
-# Set environment
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Switch to non-root user
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash appuser
 USER appuser
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=8000
 
 # Expose port
 EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Run application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

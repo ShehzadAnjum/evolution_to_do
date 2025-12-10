@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: evolution-todo
+  labels:
+    app.kubernetes.io/name: evolution-todo
+    app.kubernetes.io/part-of: evolution-todo
