@@ -20,6 +20,8 @@ export const protectedRoutes = [
   "/dashboard",
   "/app",
   "/account",
+  "/tasks",
+  "/chat",
 ] as const;
 
 
