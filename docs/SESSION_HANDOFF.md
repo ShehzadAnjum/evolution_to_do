@@ -2,7 +2,7 @@
 
 **Last Updated**: 2025-12-10
 **Updated By**: AI Assistant (Claude Code)
-**Current Phase**: IV COMPLETE - Local K8s Deployment
+**Current Phase**: IV COMPLETE - Ready for Phase V
 **Current Branch**: main
 **Current Version**: 04.001.000
 
@@ -13,9 +13,9 @@
 ### Current State
 - 🟢 Complete: Phase II SIGNED OFF - 137 tests passing, deployed
 - 🟢 Complete: Phase III - All 7 MCP tools working, chat deployed
-- 🟢 Complete: Phase IV - Docker + Kubernetes + Helm
+- 🟢 Complete: Phase IV - Docker + Kubernetes + Helm (local Minikube)
 - 🟢 Working: Complete 9-agent, 14-subagent, 9-skill RI framework
-- 🟡 Deferred: Conversation history persistence (2nd iteration)
+- 🟡 Deferred: See "2nd Iteration Backlog" below
 - 🔴 Blocked: None
 
 ### Last Session Summary
@@ -29,14 +29,33 @@
   - ✅ Installed kubectl, minikube, helm in ~/bin
   - ✅ Deployed to Minikube - both pods running (1/1 READY)
   - ✅ Ingress controller configured
+  - ✅ Updated docker-minikube.md skill with lessons learned
 - What learned:
   - Health endpoint at `/health` not `/api/health`
   - Use `imagePullPolicy: Never` for local minikube images
   - Use `minikube image load` to load Docker images into minikube
   - Ingress controller takes time to initialize
+  - Auth requires real DATABASE_URL (placeholder won't work)
 - What's next (prioritized):
-  1. **Phase V**: Cloud K8s + Kafka/Dapr (if needed)
-  2. Conversation history persistence (2nd iteration)
+  1. **Phase V**: DigitalOcean DOKS + Kafka + Dapr
+
+---
+
+## 2nd Iteration Backlog (Bonus Features)
+
+**Deferred to 2nd iteration after core phases complete:**
+
+| Feature | Points | Description |
+|---------|--------|-------------|
+| Reusable Intelligence | +200 | Create/use RI via Claude Code Subagents and Agent Skills |
+| Cloud-Native Blueprints | +200 | Create/use blueprints via Agent Skills |
+| Multi-language Support | +100 | Support Urdu in chatbot |
+| Voice Commands | +200 | Add voice input for todo commands |
+| Conversation History | - | Persist chat conversations (US8, P3) |
+| ToolResultCard component | - | UI component for tool results |
+| ConversationList component | - | UI component for conversation list |
+
+**Total Bonus Points Available**: +700
 
 ---
 
@@ -160,28 +179,32 @@ LoginPage must read `?redirect=` query param set by middleware
 
 ---
 
-## For Next Session (Phase IV)
+## For Next Session (Phase V)
 
 ### Before Starting Work
 - [ ] Read this file (5 minutes)
-- [ ] Read Phase IV spec `specs/phases/phase-4.md` (10 minutes)
+- [ ] Read Phase V spec `specs/phases/phase-5.md` (10 minutes)
 - [ ] Read infra-devops agent `.claude/agents/infra-devops.md` (10 minutes)
-- [ ] Check Docker/Minikube are installed
-- [ ] Review Helm basics if unfamiliar
+- [ ] Read kafka-dapr-patterns skill `.claude/skills/kafka-dapr-patterns.md` (10 minutes)
+- [ ] Set up DigitalOcean account (if not done)
+- [ ] Review Kafka/Dapr basics if unfamiliar
 
-### Phase IV Goals
-- Containerize backend with Docker
-- Containerize frontend with Docker
-- Deploy to local Minikube
-- Create Helm charts
-- NO NEW FEATURES - just packaging Phase III
+### Phase V Goals
+- Deploy to DigitalOcean Kubernetes Service (DOKS)
+- Add Kafka/Redpanda for event streaming
+- Add Dapr for distributed application runtime
+- Implement recurring tasks (needs Kafka)
+- Implement reminders (needs event streaming)
 
-### Key Technologies (Phase IV)
-- Docker
-- Minikube
-- Helm
-- kubectl-ai (optional)
-- kagent (optional)
+### Key Technologies (Phase V)
+- DigitalOcean DOKS (cloud Kubernetes)
+- Kafka or Redpanda (event streaming)
+- Dapr (microservices runtime)
+- Helm (reuse from Phase IV)
+
+### Cost Estimate
+- DOKS: ~$12-24/month (minimum cluster)
+- Managed Kafka: Additional cost (or self-hosted Redpanda)
 
 ---
 
