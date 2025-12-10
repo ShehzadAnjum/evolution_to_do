@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from .routes import health, tasks
+from .routes import health, tasks, chat
 from .database import init_db
 from .config import get_settings
 
@@ -58,6 +58,7 @@ app.add_middleware(
 # Register routers
 app.include_router(health.router)
 app.include_router(tasks.router)
+app.include_router(chat.router)
 
 
 @app.get("/")

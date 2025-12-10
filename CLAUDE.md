@@ -685,3 +685,10 @@ You're NOT successful if:
 **User's Commitment**: Follow constitution for project success
 
 **Let's build something great. 🚀**
+
+## Active Technologies
+- Python 3.13+ (backend), TypeScript/Node 20+ (frontend) (001-ai-chatbot-mcp)
+- Neon PostgreSQL (existing) + new conversation/message tables (001-ai-chatbot-mcp)
+
+## Recent Changes
+- 001-ai-chatbot-mcp: Added Python 3.13+ (backend), TypeScript/Node 20+ (frontend)
