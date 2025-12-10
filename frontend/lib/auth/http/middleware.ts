@@ -4,18 +4,21 @@ import { authRoutes, protectedRoutes } from "../config/routes";
 
 /**
  * Check if user has a valid session cookie
- * 
+ *
  * For Edge Runtime compatibility, we check for the session cookie.
  * Full session verification happens at the page/component level.
- * 
+ *
  * Better-Auth uses JWT sessions stored in cookies.
- * Cookie name pattern: better-auth.session_token
+ * Cookie names:
+ * - Development (HTTP): better-auth.session_token
+ * - Production (HTTPS): __Secure-better-auth.session_token
  */
 export function hasSessionCookie(request: NextRequest): boolean {
   // Check for Better-Auth session cookie
-  // Better-Auth stores JWT session in cookies
-  const sessionCookie = request.cookies.get("better-auth.session_token");
-  return !!sessionCookie;
+  // In production with useSecureCookies: true, the cookie is prefixed with __Secure-
+  const devCookie = request.cookies.get("better-auth.session_token");
+  const secureCookie = request.cookies.get("__Secure-better-auth.session_token");
+  return !!(devCookie || secureCookie);
 }
 
 /**
