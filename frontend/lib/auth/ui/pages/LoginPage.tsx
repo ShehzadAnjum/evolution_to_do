@@ -1,22 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AuthForm, type AuthMode } from "../components/AuthForm";
 import { SocialButtons } from "../components/SocialButtons";
 import { authClient } from "../../core/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { APP_VERSION } from "@/lib/version";
 
 /**
  * LoginPage Component
- * 
+ *
  * Complete login/register page with:
  * - Email/password authentication
  * - Mode switching (login ↔ register)
  * - Error handling
  * - Loading states
  * - Futuristic design
- * 
+ * - Redirect parameter support (from middleware)
+ *
  * This component handles the authentication flow and redirects
  * users after successful authentication.
  */
@@ -25,6 +26,10 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Get redirect URL from query params (set by middleware) or default to /tasks
+  const redirectTo = searchParams.get("redirect") || "/tasks";
 
   const handleSubmit = async (data: { email: string; password: string }) => {
     setIsLoading(true);
@@ -43,8 +48,8 @@ export function LoginPage() {
           return;
         }
 
-        // Redirect on success
-        router.push("/tasks");
+        // Redirect on success (use redirect param or default)
+        router.push(redirectTo);
         router.refresh();
       } else {
         // Sign up
@@ -71,8 +76,8 @@ export function LoginPage() {
           return;
         }
 
-        // Redirect on success
-        router.push("/tasks");
+        // Redirect on success (use redirect param or default)
+        router.push(redirectTo);
         router.refresh();
       }
     } catch (err) {
@@ -106,7 +111,7 @@ export function LoginPage() {
           className="mt-6"
           onSuccess={() => {
             setError(null);
-            router.push("/dashboard");
+            router.push(redirectTo);
             router.refresh();
           }}
           onError={(err) => setError(err)}
