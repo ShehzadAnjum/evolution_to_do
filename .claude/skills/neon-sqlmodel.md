@@ -45,34 +45,48 @@ def get_session():
 **Task Model** (`backend/src/models/task.py`):
 ```python
 from sqlmodel import SQLModel, Field
-from datetime import datetime
+from datetime import datetime, date, UTC
 from uuid import UUID, uuid4
 from typing import Optional
 
 class TaskBase(SQLModel):
-    title: str = Field(min_length=1, max_length=255)
-    completed: bool = Field(default=False)
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=2000)
+    is_complete: bool = Field(default=False)
+    # v2.0.0: Optional fields with defaults
+    priority: str = Field(default="medium")  # high, medium, low
+    category: str = Field(default="general", max_length=50)
+    due_date: Optional[date] = Field(default=None)
 
-class Task(TaskBase, table=True):
+class TaskDB(TaskBase, table=True):
     __tablename__ = "tasks"
-    
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: str = Field(index=True)  # From JWT
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = None
+    # Use lambda for datetime.now(UTC) - see PHR-003
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-class TaskCreate(TaskBase):
-    pass
+class TaskCreate(SQLModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=2000)
+    priority: str = Field(default="medium")
+    category: str = Field(default="general", max_length=50)
+    due_date: Optional[date] = Field(default=None)
 
 class TaskUpdate(SQLModel):
     title: Optional[str] = None
-    completed: Optional[bool] = None
+    description: Optional[str] = None
+    is_complete: Optional[bool] = None
+    priority: Optional[str] = None
+    category: Optional[str] = None
+    due_date: Optional[date] = None
 
 class TaskRead(TaskBase):
     id: UUID
     user_id: str
     created_at: datetime
-    updated_at: Optional[datetime]
+    updated_at: datetime
 ```
 
 ## CRUD Patterns
@@ -123,7 +137,7 @@ def update_task(
     for key, value in update_data.items():
         setattr(db_task, key, value)
     
-    db_task.updated_at = datetime.utcnow()
+    db_task.updated_at = datetime.now(UTC)
     session.add(db_task)
     session.commit()
     session.refresh(db_task)
@@ -175,7 +189,9 @@ async def warmup_db():
         session.exec(text("SELECT 1"))
 ```
 
-## Migration Pattern
+## Migration Patterns
+
+### Auto-Create Tables (Development)
 
 ```python
 # backend/src/db/init_db.py
@@ -190,6 +206,59 @@ def init_db():
 def on_startup():
     init_db()
 ```
+
+### Manual Migration Script (Production - Adding Columns)
+
+When adding new columns to existing tables with data, use idempotent migration scripts:
+
+```python
+# backend/scripts/migrate_v2.py
+"""Add new columns to existing table (idempotent - safe to run multiple times)."""
+
+from sqlalchemy import text
+from sqlmodel import create_engine, Session
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+def run_migration():
+    engine = create_engine(os.getenv("DATABASE_URL"))
+
+    with Session(engine) as session:
+        # Check existing columns first
+        result = session.exec(text("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'tasks'
+        """))
+        existing_columns = [row[0] for row in result]
+
+        # Add columns only if they don't exist
+        if "priority" not in existing_columns:
+            session.exec(text("""
+                ALTER TABLE tasks
+                ADD COLUMN IF NOT EXISTS priority VARCHAR(10) DEFAULT 'medium'
+            """))
+            session.commit()
+
+        # Create indexes (IF NOT EXISTS is safe)
+        session.exec(text("""
+            CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority)
+        """))
+        session.commit()
+
+if __name__ == "__main__":
+    run_migration()
+```
+
+### Migration Best Practices
+
+1. **Always use defaults** for new columns so existing rows remain valid
+2. **Use `IF NOT EXISTS`** for idempotent migrations
+3. **Check column existence** before ALTER TABLE
+4. **Create indexes** for columns used in filtering
+5. **Run migrations** before deploying new code that uses new columns
 
 ## Anti-Patterns
 
@@ -220,8 +289,27 @@ def get_user_tasks(session: Session, user_id: str):
 | Cold start latency | Add connection warmup |
 | Migration fails | Check DATABASE_URL format |
 
+## Datetime Best Practices (Python 3.12+)
+
+```python
+# ❌ DON'T: Use deprecated utcnow()
+created_at: datetime = Field(default_factory=datetime.utcnow)
+
+# ✅ DO: Use timezone-aware datetime with UTC
+from datetime import datetime, UTC
+created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+# ❌ DON'T: Use utcnow() in updates
+task.updated_at = datetime.utcnow()
+
+# ✅ DO: Use datetime.now(UTC)
+task.updated_at = datetime.now(UTC)
+```
+
+See PHR-003 for detailed rationale.
+
 ---
 
 **Part of**: Evolution of Todo Reusable Intelligence
 **Phase**: II, III, IV, V
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-12
