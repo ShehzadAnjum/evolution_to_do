@@ -13,6 +13,13 @@ spec:
     metadata:
       labels:
         {{- include "evolution-todo.backend.selectorLabels" . | nindent 8 }}
+      {{- if .Values.dapr.enabled }}
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "{{ .Values.dapr.appId }}"
+        dapr.io/app-port: "{{ .Values.dapr.appPort }}"
+        dapr.io/enable-api-logging: "true"
+      {{- end }}
     spec:
       containers:
         - name: backend
@@ -42,6 +49,12 @@ spec:
                 configMapKeyRef:
                   name: {{ include "evolution-todo.fullname" . }}-config
                   key: CORS_ORIGINS
+            {{- if .Values.dapr.enabled }}
+            - name: DAPR_ENABLED
+              value: "true"
+            - name: DAPR_HTTP_PORT
+              value: "3500"
+            {{- end }}
           readinessProbe:
             httpGet:
               path: {{ .Values.backend.probes.readiness.path }}

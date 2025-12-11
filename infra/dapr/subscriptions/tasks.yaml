@@ -1,0 +1,65 @@
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: task-created-subscription
+  namespace: evolution-todo
+spec:
+  pubsubname: taskevents
+  topic: task.created
+  routes:
+    default: /events/task-created
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: task-updated-subscription
+  namespace: evolution-todo
+spec:
+  pubsubname: taskevents
+  topic: task.updated
+  routes:
+    default: /events/task-updated
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: task-completed-subscription
+  namespace: evolution-todo
+spec:
+  pubsubname: taskevents
+  topic: task.completed
+  routes:
+    default: /events/task-completed
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: task-deleted-subscription
+  namespace: evolution-todo
+spec:
+  pubsubname: taskevents
+  topic: task.deleted
+  routes:
+    default: /events/task-deleted
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: reminder-due-subscription
+  namespace: evolution-todo
+spec:
+  pubsubname: taskevents
+  topic: reminder.due
+  routes:
+    default: /events/reminder-due
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: recurring-trigger-subscription
+  namespace: evolution-todo
+spec:
+  pubsubname: taskevents
+  topic: recurring.trigger
+  routes:
+    default: /events/recurring-trigger

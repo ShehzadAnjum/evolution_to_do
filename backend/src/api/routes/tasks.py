@@ -1,12 +1,16 @@
 """Task CRUD endpoints."""
 
+import logging
 from datetime import datetime
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlmodel import Session, select
 
 from ..deps import get_session, get_current_user_id
 from ...models.task import TaskDB, TaskCreate, TaskRead, TaskUpdate
+from ...services.event_service import get_event_service
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -39,6 +43,7 @@ async def list_tasks(
 @router.post("/", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
 async def create_task(
     task_data: TaskCreate,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):
@@ -86,6 +91,16 @@ async def create_task(
             )
         raise
 
+    # Publish task created event (non-blocking)
+    event_service = get_event_service()
+    background_tasks.add_task(
+        event_service.publish_task_created,
+        task_id=task.id,
+        user_id=user_id,
+        title=task.title,
+        description=task.description,
+    )
+
     return TaskRead.model_validate(task)
 
 
@@ -122,6 +137,7 @@ async def get_task(
 async def update_task(
     task_id: UUID,
     task_data: TaskUpdate,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):
@@ -170,12 +186,24 @@ async def update_task(
     session.commit()
     session.refresh(task)
 
+    # Publish task updated event (non-blocking)
+    event_service = get_event_service()
+    background_tasks.add_task(
+        event_service.publish_task_updated,
+        task_id=task.id,
+        user_id=user_id,
+        title=task_data.title,
+        description=task_data.description,
+        is_complete=task_data.is_complete,
+    )
+
     return TaskRead.model_validate(task)
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(
     task_id: UUID,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):
@@ -201,8 +229,20 @@ async def delete_task(
             detail="Task not found",
         )
 
+    # Store title for event before deleting
+    task_title = task.title
+
     session.delete(task)
     session.commit()
+
+    # Publish task deleted event (non-blocking)
+    event_service = get_event_service()
+    background_tasks.add_task(
+        event_service.publish_task_deleted,
+        task_id=task_id,
+        user_id=user_id,
+        title=task_title,
+    )
 
     return None
 
@@ -210,6 +250,7 @@ async def delete_task(
 @router.patch("/{task_id}/complete", response_model=TaskRead)
 async def toggle_task_completion(
     task_id: UUID,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):
@@ -241,5 +282,15 @@ async def toggle_task_completion(
     session.add(task)
     session.commit()
     session.refresh(task)
+
+    # Publish task completed event (non-blocking)
+    event_service = get_event_service()
+    background_tasks.add_task(
+        event_service.publish_task_completed,
+        task_id=task.id,
+        user_id=user_id,
+        title=task.title,
+        is_complete=task.is_complete,
+    )
 
     return TaskRead.model_validate(task)

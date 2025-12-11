@@ -1,49 +1,125 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-11
 **Updated By**: AI Assistant (Claude Code)
-**Current Phase**: IV COMPLETE - Ready for Phase V
+**Current Phase**: V (Local Complete) - Cloud Deployment Deferred
 **Current Branch**: main
-**Current Version**: 04.001.000
+**Current Version**: 05.001.000
 
 ---
 
 ## Quick Status (30-Second Read)
 
 ### Current State
+- 🟢 Complete: Phase I (Console App)
 - 🟢 Complete: Phase II SIGNED OFF - 137 tests passing, deployed
 - 🟢 Complete: Phase III - All 7 MCP tools working, chat deployed
 - 🟢 Complete: Phase IV - Docker + Kubernetes + Helm (local Minikube)
-- 🟢 Working: Complete 9-agent, 14-subagent, 9-skill RI framework
-- 🟡 Deferred: See "2nd Iteration Backlog" below
-- 🔴 Blocked: None
+- 🟢 Complete: Phase V Local - Kafka + Dapr on Minikube WORKING
+- 🟡 Deferred: Phase V Cloud - GKE quota exceeded, pending increase
+- 🔴 Blocked: GCP CPUS_ALL_REGIONS quota (4/10, need 24)
 
 ### Last Session Summary
 - What accomplished:
-  - ✅ **Phase IV COMPLETE** - Docker, Minikube, Helm deployment working
-  - ✅ Created Backend Dockerfile (multi-stage, Python 3.13)
-  - ✅ Created Frontend Dockerfile (multi-stage, Node 20 standalone)
-  - ✅ Created docker-compose.local.yml for local development
-  - ✅ Created K8s base manifests (namespace, deployment, service, ingress)
-  - ✅ Created Helm chart with configurable values
-  - ✅ Installed kubectl, minikube, helm in ~/bin
-  - ✅ Deployed to Minikube - both pods running (1/1 READY)
-  - ✅ Ingress controller configured
-  - ✅ Updated docker-minikube.md skill with lessons learned
+  - ✅ **Phase V Local COMPLETE** - Kafka + Dapr fully functional on Minikube
+  - ✅ Installed Dapr CLI v1.16.5 to ~/bin
+  - ✅ Deployed Dapr to Kubernetes (`dapr init -k`)
+  - ✅ Deployed Strimzi Kafka Operator (Bitnami/Redpanda failed)
+  - ✅ Created Kafka cluster via Strimzi (KRaft mode, Kafka 4.0.0)
+  - ✅ Created event models (TaskEvent, ReminderEvent, RecurringTriggerEvent)
+  - ✅ Created EventService for Dapr pub/sub
+  - ✅ Created event handler endpoints (6 subscriptions)
+  - ✅ Updated tasks routes with background event publishing
+  - ✅ Created test script `scripts/test-kafka-dapr.sh`
+  - ✅ Helm upgrade with Dapr sidecar - backend 2/2 Running
+  - ✅ GCP project `evolution-todo-v2` created with billing
+  - ✅ Docker images pushed to Artifact Registry
+  - ❌ GKE cluster DELETED (quota exceeded, $0 charges now)
 - What learned:
-  - Health endpoint at `/health` not `/api/health`
-  - Use `imagePullPolicy: Never` for local minikube images
-  - Use `minikube image load` to load Docker images into minikube
-  - Ingress controller takes time to initialize
-  - Auth requires real DATABASE_URL (placeholder won't work)
+  - Dapr CLI uses `DAPR_INSTALL_DIR` env var, not `--install-path` flag
+  - Bitnami Kafka paywall (Aug 2025), Redpanda too heavy, **Strimzi works**
+  - Strimzi requires Kafka 4.x (3.8.0 causes UnsupportedKafkaVersionException)
+  - GKE Autopilot auto-scales but hits GCE quota limits on new accounts
+  - Docker credential helper needs wrapper script for gcloud SDK
 - What's next (prioritized):
-  1. **Phase V**: DigitalOcean DOKS + Kafka + Dapr
+  1. **WAIT**: Request GCP quota increase (CPUS_ALL_REGIONS → 24)
+  2. **THEN**: Redeploy to GKE (~10 minutes once approved)
+  3. **OR**: Start 2nd iteration (bonus features)
+
+### Resume Point for Cloud Deployment
+When GCP quota is approved:
+```bash
+# 1. Recreate cluster
+gcloud container clusters create-auto evolution-todo-cluster \
+  --region=us-central1 --project=evolution-todo-v2
+
+# 2. Configure kubectl
+gcloud container clusters get-credentials evolution-todo-cluster \
+  --region=us-central1 --project=evolution-todo-v2
+
+# 3. Install Dapr
+dapr init -k --wait
+
+# 4. Deploy Strimzi + Kafka
+kubectl create namespace kafka
+kubectl create -f 'https://strimzi.io/install/latest?namespace=kafka' -n kafka
+# Apply Kafka cluster CR (see infra notes)
+
+# 5. Deploy app
+kubectl create namespace evolution-todo
+kubectl apply -f infra/dapr/components/pubsub.yaml
+kubectl apply -f infra/dapr/subscriptions/tasks.yaml
+helm install evolution-todo infra/k8s/helm/evolution-todo \
+  --namespace evolution-todo \
+  --set backend.image.repository="us-central1-docker.pkg.dev/evolution-todo-v2/evolution-todo/backend" \
+  --set backend.image.tag="v1" \
+  --set frontend.image.repository="us-central1-docker.pkg.dev/evolution-todo-v2/evolution-todo/frontend" \
+  --set frontend.image.tag="v1" \
+  --set dapr.enabled=true
+```
+
+---
+
+## 1st Iteration Lock Strategy
+
+**Version**: v1.0.0 (tag: `v1.0.0-iteration1`)
+**Branch**: `release/v1.0.0` (protected)
+**Commit**: (to be created)
+
+### How to Protect 1st Iteration
+1. **Git Tag**: Immutable marker at completion point
+2. **Release Branch**: `release/v1.0.0` - do not merge into this
+3. **GitHub Protection**: Enable branch protection rules
+4. **2nd Iteration**: Work on `main` or `dev` branch
+5. **Demo**: Always checkout `v1.0.0-iteration1` for presentation
+
+### Commands to Lock
+```bash
+# Create release branch
+git checkout -b release/v1.0.0
+git push origin release/v1.0.0
+
+# Tag the release
+git tag -a v1.0.0-iteration1 -m "1st Iteration Complete - All 5 Phases"
+git push origin v1.0.0-iteration1
+
+# Return to main for 2nd iteration
+git checkout main
+```
+
+### GitHub Branch Protection (Manual)
+Settings → Branches → Add rule:
+- Branch pattern: `release/*`
+- ☑ Require PR before merging
+- ☑ Require status checks
+- ☑ Require signed commits (optional)
+- ☑ Do not allow deletions
 
 ---
 
 ## 2nd Iteration Backlog (Bonus Features)
 
-**Deferred to 2nd iteration after core phases complete:**
+**Deferred to 2nd iteration after 1st iteration locked:**
 
 | Feature | Points | Description |
 |---------|--------|-------------|
@@ -56,6 +132,62 @@
 | ConversationList component | - | UI component for conversation list |
 
 **Total Bonus Points Available**: +700
+
+### 2nd Iteration Strategy
+1. Start from Phase I on `main` branch
+2. Implement bonus features progressively
+3. Keep `release/v1.0.0` as fallback demo
+4. Tag iterations: `v1.1.0`, `v1.2.0`, etc.
+
+---
+
+## Phase V Completion Summary (Local)
+
+### What Was Built
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Event Models | ✅ Complete | TaskEvent, ReminderEvent, RecurringTriggerEvent |
+| Event Service | ✅ Complete | Dapr pub/sub via HTTP API |
+| Event Handlers | ✅ Complete | 6 subscription endpoints |
+| Tasks Event Publishing | ✅ Complete | Background tasks on CRUD |
+| Dapr Components | ✅ Complete | pubsub.yaml, subscriptions |
+| Helm Dapr Support | ✅ Complete | Sidecar annotations in values |
+| Strimzi Kafka | ✅ Complete | Kafka 4.0.0 on Minikube |
+| Test Script | ✅ Complete | scripts/test-kafka-dapr.sh |
+
+### Cloud Deployment Status
+| Component | Status | Notes |
+|-----------|--------|-------|
+| GCP Project | ✅ Ready | evolution-todo-v2 |
+| Billing | ✅ Linked | cheekou77@gmail.com |
+| Artifact Registry | ✅ Ready | Images pushed (backend:v1, frontend:v1) |
+| GKE Cluster | ❌ DELETED | Quota exceeded, waiting for increase |
+
+### Key Files (Phase V)
+- `backend/src/models/event.py` - Event type definitions
+- `backend/src/services/event_service.py` - Dapr pub/sub client
+- `backend/src/api/routes/events.py` - Event handler endpoints
+- `backend/src/api/routes/tasks.py` - Updated with event publishing
+- `infra/dapr/components/pubsub.yaml` - Kafka pubsub component
+- `infra/dapr/subscriptions/tasks.yaml` - 6 event subscriptions
+- `scripts/test-kafka-dapr.sh` - Verification script
+
+### Commands to Test Locally
+```bash
+# Verify Kafka + Dapr
+bash scripts/test-kafka-dapr.sh
+
+# Port-forward backend
+kubectl port-forward svc/evolution-todo-backend 8000:8000 -n evolution-todo
+
+# Create task (triggers event)
+curl -X POST http://localhost:8000/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Test event"}'
+
+# Watch backend logs for event
+kubectl logs -n evolution-todo -l app.kubernetes.io/component=backend -c backend -f
+```
 
 ---
 
@@ -78,42 +210,6 @@
 - `infra/k8s/base-manifests/` - Plain K8s manifests
 - `infra/k8s/helm/evolution-todo/` - Helm chart
 
-### Commands to Deploy
-```bash
-# Load images into minikube
-minikube image load evolution-todo-backend:dev
-minikube image load evolution-todo-frontend:dev
-
-# Deploy with Helm
-helm install evolution-todo infra/k8s/helm/evolution-todo \
-  --namespace evolution-todo \
-  --set secrets.databaseUrl="..." \
-  --set secrets.betterAuthSecret="..." \
-  --set backend.image.repository="docker.io/library/evolution-todo-backend" \
-  --set frontend.image.repository="docker.io/library/evolution-todo-frontend"
-
-# Access via port-forward (alternative to ingress)
-kubectl port-forward svc/evolution-todo-frontend 3000:3000 -n evolution-todo
-kubectl port-forward svc/evolution-todo-backend 8000:8000 -n evolution-todo
-```
-
-### Expected Behavior (Auth in Local K8s)
-**Auth does NOT work with placeholder secrets** - this is expected:
-- Login/signup will fail because DATABASE_URL points to placeholder
-- Better Auth needs real Neon database to store/verify users
-- Health checks pass (`/health` returns 200 OK)
-- Frontend pages render correctly
-- **This proves containerization works** - the goal of Phase IV
-
-To test with real auth, provide actual secrets:
-```bash
-helm upgrade evolution-todo infra/k8s/helm/evolution-todo \
-  --set secrets.databaseUrl="postgresql://real-connection-string" \
-  --set secrets.betterAuthSecret="real-32-char-secret"
-```
-
-**Production auth works on Vercel/Railway** where real env vars are configured.
-
 ---
 
 ## Phase III Completion Summary
@@ -130,42 +226,59 @@ helm upgrade evolution-todo infra/k8s/helm/evolution-todo \
 | search_tasks MCP tool | ✅ Complete | Search by keyword |
 | Chat UI | ✅ Complete | MessageInput, MessageList, ChatInterface |
 | Chat API | ✅ Complete | POST /api/chat with JWT auth |
-| Auth Flow | ✅ Complete | Email/password + Google OAuth |
-
-### Deferred to 2nd Iteration
-- Conversation history persistence (US8, P3)
-- ToolResultCard component
-- ConversationList component
-
-### Key Files
-- `backend/src/mcp/tools/tool_executor.py` - All 7 MCP tools
-- `backend/src/services/chat_service.py` - Chat orchestration
-- `backend/src/api/chat.py` - Chat endpoint
-- `frontend/app/chat/page.tsx` - Chat page
-- `frontend/components/chat/` - Chat UI components
-- `frontend/lib/auth/http/middleware.ts` - Auth middleware (cookie fix)
 
 ---
 
-## Critical Lessons Learned (Phase III)
+## Critical Lessons Learned
 
-### 1. Better Auth Secure Cookie Prefix
-**PHR-004**: When `useSecureCookies: true` (production), cookies are prefixed with `__Secure-`
+### Phase V Learnings
 
-```typescript
-// MUST check both cookie names in middleware!
-const devCookie = request.cookies.get("better-auth.session_token");
-const secureCookie = request.cookies.get("__Secure-better-auth.session_token");
-return !!(devCookie || secureCookie);
+#### 1. Kafka Deployment Methods
+| Method | Status | Notes |
+|--------|--------|-------|
+| Bitnami Helm | ❌ Failed | Paywall since Aug 2025 |
+| Redpanda | ❌ Failed | Too heavy for Minikube |
+| **Strimzi** | ✅ Works | Official K8s operator |
+
+#### 2. Strimzi Kafka Version
+```yaml
+# WRONG - UnsupportedKafkaVersionException
+version: 3.8.0
+
+# CORRECT
+version: 4.0.0
+metadataVersion: 4.0-IV0
 ```
 
-### 2. Protected Routes Array
-Routes must be in BOTH:
-- `middleware.ts` matcher array
-- `routes.ts` protectedRoutes array
+#### 3. Dapr CLI Installation
+```bash
+# WRONG - interprets flag as version
+curl ... | /bin/bash -s -- --install-path ~/bin
 
-### 3. Post-Login Redirect
-LoginPage must read `?redirect=` query param set by middleware
+# CORRECT - use environment variable
+wget ... | DAPR_INSTALL_DIR=~/bin /bin/bash
+```
+
+#### 4. GKE Autopilot Quotas
+- New GCP accounts have low default quotas
+- CPUS_ALL_REGIONS: typically 10 (need 24+ for Kafka)
+- Request increase: https://console.cloud.google.com/iam-admin/quotas
+- Approval: 2-24 hours typically
+
+#### 5. Docker Credential Helper
+```bash
+# If docker push fails after gcloud auth configure-docker:
+# Create wrapper script
+cat > ~/bin/docker-credential-gcloud << 'EOF'
+#!/bin/bash
+exec /tmp/google-cloud-sdk/bin/docker-credential-gcloud "$@"
+EOF
+chmod +x ~/bin/docker-credential-gcloud
+```
+
+### Phase III Learnings
+- Better Auth secure cookie prefix: `__Secure-better-auth.session_token`
+- Protected routes need BOTH middleware.ts AND routes.ts
 
 ---
 
@@ -176,41 +289,33 @@ LoginPage must read `?redirect=` query param set by middleware
 | Frontend | Vercel | https://evolution-to-do.vercel.app | ✅ Live |
 | Backend | Railway | (Railway URL) | ✅ Live |
 | Database | Neon | PostgreSQL | ✅ Connected |
+| Local K8s | Minikube | localhost (port-forward) | ✅ Working |
+| GKE | GCP | DELETED | ⏳ Quota pending |
 
 ---
 
-## For Next Session (Phase V)
+## GCP Resources
 
-### Before Starting Work
-- [ ] Read this file (5 minutes)
-- [ ] Read Phase V spec `specs/phases/phase-5.md` (10 minutes)
-- [ ] Read infra-devops agent `.claude/agents/infra-devops.md` (10 minutes)
-- [ ] Read kafka-dapr-patterns skill `.claude/skills/kafka-dapr-patterns.md` (10 minutes)
-- [ ] Set up DigitalOcean account (if not done)
-- [ ] Review Kafka/Dapr basics if unfamiliar
-
-### Phase V Goals
-- Deploy to DigitalOcean Kubernetes Service (DOKS)
-- Add Kafka/Redpanda for event streaming
-- Add Dapr for distributed application runtime
-- Implement recurring tasks (needs Kafka)
-- Implement reminders (needs event streaming)
-
-### Key Technologies (Phase V)
-- DigitalOcean DOKS (cloud Kubernetes)
-- Kafka or Redpanda (event streaming)
-- Dapr (microservices runtime)
-- Helm (reuse from Phase IV)
-
-### Cost Estimate
-- DOKS: ~$12-24/month (minimum cluster)
-- Managed Kafka: Additional cost (or self-hosted Redpanda)
+| Resource | ID/Name | Status |
+|----------|---------|--------|
+| Project | evolution-todo-v2 | ✅ Active |
+| Billing Account | cheekou77@gmail.com | ✅ Linked |
+| Artifact Registry | evolution-todo | ✅ Ready |
+| Backend Image | backend:v1 | ✅ Pushed |
+| Frontend Image | frontend:v1 | ✅ Pushed |
+| GKE Cluster | evolution-todo-cluster | ❌ DELETED |
 
 ---
 
 ## User Actions Pending
 
-Before Dec 14, 11:59 PM:
+### Immediate (Quota)
+- [ ] Request quota increase at: https://console.cloud.google.com/iam-admin/quotas?project=evolution-todo-v2
+- [ ] Search: `CPUS_ALL_REGIONS`
+- [ ] Request: 24 CPUs
+- [ ] Reason: "Kubernetes cluster for application development"
+
+### Hackathon Submission (Before Dec 14)
 - [ ] Verify Vercel deployment is accessible
 - [ ] Verify Railway deployment is accessible
 - [ ] Test chat functionality at /chat
@@ -223,6 +328,7 @@ Before Dec 14, 11:59 PM:
 
 | Version | Phase | Description |
 |---------|-------|-------------|
+| 05.001.000 | V | Phase V Local Complete - Kafka + Dapr on Minikube |
 | 04.001.000 | IV | Phase IV Complete - Docker, K8s, Helm |
 | 03.001.000 | III | Phase III Complete - All 7 MCP tools |
 | 03.000.000 | III | Phase II→III transition |

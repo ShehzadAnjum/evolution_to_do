@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # OpenAI (Phase III - AI Chatbot)
     openai_api_key: str = ""
 
+    # Dapr (Phase V - Event-driven)
+    dapr_enabled: bool = False
+    dapr_http_port: str = "3500"
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""

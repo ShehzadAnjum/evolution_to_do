@@ -78,3 +78,9 @@ config:
   betterAuthUrl: "http://backend:8000"
   corsOrigins: "http://frontend:3000,http://localhost:3000"
   nextPublicApiUrl: "http://backend:8000"
+
+# Dapr configuration
+dapr:
+  enabled: true
+  appId: "evolution-todo-backend"
+  appPort: 8000
