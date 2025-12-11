@@ -255,8 +255,8 @@ export default function TasksPage() {
 
       {/* Main Content - Takes remaining width, has its own scroll */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Header - Sticky */}
-        <header className="shrink-0 z-30 bg-card border-b border-border px-4 lg:px-8 h-16 flex items-center justify-between">
+        {/* Header - Fixed at top */}
+        <header className="sticky top-0 shrink-0 z-30 bg-card border-b border-border px-4 lg:px-8 h-16 flex items-center justify-between">
           {/* Left: Menu button (mobile) + Title */}
           <div className="flex items-center gap-4">
             <button
@@ -274,8 +274,21 @@ export default function TasksPage() {
             </h1>
           </div>
 
-          {/* Right: Search, Chat, Theme, User */}
-          <div className="flex items-center gap-3">
+          {/* Right: Add Task, Search, Chat, Theme, User */}
+          <div className="flex items-center gap-2">
+            {/* Add Task Button */}
+            <button
+              onClick={() => {
+                setEditingTask(null);
+                setTaskDialogOpen(true);
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors font-medium text-sm"
+              title="Add New Task"
+            >
+              <span className="text-lg leading-none">+</span>
+              <span className="hidden sm:inline">Add Task</span>
+            </button>
+
             {/* Search */}
             <div className="hidden sm:block relative">
               <input
@@ -371,21 +384,6 @@ export default function TasksPage() {
           </div>
         </div>
       </main>
-
-      {/* Floating Add Task Button */}
-      <button
-        onClick={() => {
-          setEditingTask(null);
-          setTaskDialogOpen(true);
-        }}
-        className="fixed bottom-6 right-6 z-30 w-14 h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
-        title="Add New Task"
-      >
-        <span className="text-2xl font-light transition-transform group-hover:rotate-90 duration-200">+</span>
-        <span className="absolute right-full mr-3 px-3 py-1.5 bg-popover text-popover-foreground text-sm rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-          Add New Task
-        </span>
-      </button>
 
       {/* Add/Edit Task Dialog */}
       <Dialog

@@ -8,7 +8,7 @@
 @layer base {
   /* v2.0.0: Light Mode (Default) */
   :root {
-    --background: 0 0% 100%;
+    --background: 210 20% 96%;       /* Slightly gray outer bg */
     --foreground: 210 11% 15%;
     --card: 210 17% 98%;
     --card-foreground: 210 11% 15%;
@@ -161,4 +161,13 @@
 }
 .sidebar-item.active {
   @apply bg-primary/10 text-primary;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
 }

@@ -75,8 +75,8 @@ export function Sidebar({
         <h1 className="text-lg font-semibold text-foreground">Evolution Todo</h1>
       </div>
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      {/* Scrollable content - hidden scrollbar */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-secondary/50 rounded-lg p-3 text-center">
