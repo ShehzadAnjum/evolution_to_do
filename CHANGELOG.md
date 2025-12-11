@@ -13,6 +13,64 @@ Version format: MAJOR.MINOR.PATCH (mm.nnn.ooo)
 
 ---
 
+## [05.001.000] - 2025-12-11
+
+### Added
+- **Phase V Local Complete**: Kafka + Dapr event-driven architecture on Minikube
+- **Event Models**: TaskEvent, ReminderEvent, RecurringTriggerEvent in `backend/src/models/event.py`
+- **Event Service**: Dapr pub/sub client via HTTP API in `backend/src/services/event_service.py`
+- **Event Handlers**: 6 subscription endpoints in `backend/src/api/routes/events.py`
+- **Dapr Components**: pubsub.yaml and subscriptions/tasks.yaml
+- **Test Script**: `scripts/test-kafka-dapr.sh` for verification
+- **ADR-005**: Cloud deployment deferred due to GKE quota
+
+### Changed
+- **Tasks Routes**: Added background event publishing to all CRUD operations
+- **Helm Chart**: Added Dapr sidecar annotations and values
+- **Kafka-Dapr Skill**: Added 8 lessons learned from Phase V
+
+### Infrastructure
+- **Strimzi Kafka**: Deployed on Minikube (Bitnami/Redpanda failed)
+- **Dapr**: Deployed to K8s with pubsub component
+- **GCP Setup**: Project `evolution-todo-v2` created, images pushed to Artifact Registry
+- **GKE**: Cluster DELETED due to CPUS_ALL_REGIONS quota (4/10, need 24)
+
+### Event Types Implemented
+- task.created, task.updated, task.completed, task.deleted
+- reminder.due, recurring.trigger
+
+### Phase
+- Phase V: Cloud Deployment + Event-Driven Architecture (Local Complete)
+
+### Notes
+- Cloud deployment deferred pending GCP quota increase
+- Local Minikube demo fully functional
+- Resume commands documented in SESSION_HANDOFF.md
+- **1st Iteration Complete** - ready for v1.0.0 tag
+
+---
+
+## [04.001.000] - 2025-12-10
+
+### Added
+- **Phase IV Complete**: Docker + Kubernetes + Helm deployment working
+- **Backend Dockerfile**: Multi-stage Python 3.13 build
+- **Frontend Dockerfile**: Multi-stage Node 20 standalone
+- **Docker Compose**: Local development compose file
+- **K8s Base Manifests**: Namespace, deployments, services, ingress
+- **Helm Chart**: Full chart with configurable values
+- **Docker-Minikube Skill**: Added Phase IV lessons learned
+
+### Phase
+- Phase IV: Kubernetes Packaging (NO NEW FEATURES)
+
+### Notes
+- Both pods running (1/1 READY) on Minikube
+- Health endpoint at `/health` not `/api/health`
+- Use `imagePullPolicy: Never` for local minikube images
+
+---
+
 ## [03.001.000] - 2025-12-10
 
 ### Added
