@@ -1,18 +1,45 @@
 """Task model for the todo application.
 
 This module defines Task models for both Phase I (dataclass) and Phase II (SQLModel).
+
+Version History:
+- v1.0.0: Basic task (title, description, is_complete)
+- v2.0.0: Added priority, category, due_date for 2nd iteration
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, date, UTC
+from typing import Optional, Literal
 from uuid import UUID, uuid4
+from enum import Enum
 
 from sqlmodel import Field, SQLModel
 
 # Validation constants (from spec clarifications)
 MAX_TITLE_LENGTH = 200
 MAX_DESCRIPTION_LENGTH = 2000
+MAX_CATEGORY_LENGTH = 50
+
+
+# =============================================================================
+# Enums for constrained fields
+# =============================================================================
+
+
+class Priority(str, Enum):
+    """Task priority levels."""
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class DefaultCategory(str, Enum):
+    """Default task categories."""
+    GENERAL = "general"
+    WORK = "work"
+    PERSONAL = "personal"
+    STUDY = "study"
+    SHOPPING = "shopping"
 
 
 # =============================================================================
@@ -51,15 +78,36 @@ class Task:
 
 
 class TaskBase(SQLModel):
-    """Base task fields shared by all task schemas."""
+    """Base task fields shared by all task schemas.
+
+    v2.0.0: Added priority, category, due_date (all optional with defaults)
+    """
 
     title: str = Field(min_length=1, max_length=MAX_TITLE_LENGTH)
     description: str = Field(default="", max_length=MAX_DESCRIPTION_LENGTH)
     is_complete: bool = Field(default=False)
 
+    # v2.0.0: New optional fields with sensible defaults
+    priority: str = Field(
+        default="medium",
+        description="Task priority: high, medium, low"
+    )
+    category: str = Field(
+        default="general",
+        max_length=MAX_CATEGORY_LENGTH,
+        description="Task category (default or custom)"
+    )
+    due_date: Optional[date] = Field(
+        default=None,
+        description="Optional due date for the task"
+    )
+
 
 class TaskDB(TaskBase, table=True):
-    """Database model for tasks (SQLModel table)."""
+    """Database model for tasks (SQLModel table).
+
+    v2.0.0: Added priority, category, due_date columns (nullable/defaults for backward compat)
+    """
 
     __tablename__ = "tasks"
 
@@ -68,27 +116,49 @@ class TaskDB(TaskBase, table=True):
     # We don't define it here to avoid SQLModel metadata resolution issues
     # The user table is managed by Better Auth (uses TEXT for user.id)
     user_id: str = Field(index=True, description="Owner user ID")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    # v2.0.0: Indexes for filtering
+    # Note: SQLModel will add these columns, but for existing DBs we need migration
 
 
 class TaskCreate(SQLModel):
-    """Schema for creating a task (request body)."""
+    """Schema for creating a task (request body).
+
+    v2.0.0: Added optional priority, category, due_date
+    """
 
     title: str = Field(min_length=1, max_length=MAX_TITLE_LENGTH)
     description: str = Field(default="", max_length=MAX_DESCRIPTION_LENGTH)
 
+    # v2.0.0: New optional fields
+    priority: str = Field(default="medium", description="high, medium, low")
+    category: str = Field(default="general", max_length=MAX_CATEGORY_LENGTH)
+    due_date: Optional[date] = Field(default=None)
+
 
 class TaskUpdate(SQLModel):
-    """Schema for updating a task (partial update)."""
+    """Schema for updating a task (partial update).
+
+    v2.0.0: Added optional priority, category, due_date
+    """
 
     title: Optional[str] = Field(default=None, min_length=1, max_length=MAX_TITLE_LENGTH)
     description: Optional[str] = Field(default=None, max_length=MAX_DESCRIPTION_LENGTH)
     is_complete: Optional[bool] = None
 
+    # v2.0.0: New optional fields
+    priority: Optional[str] = Field(default=None, description="high, medium, low")
+    category: Optional[str] = Field(default=None, max_length=MAX_CATEGORY_LENGTH)
+    due_date: Optional[date] = Field(default=None)
+
 
 class TaskRead(TaskBase):
-    """Schema for reading a task (response body)."""
+    """Schema for reading a task (response body).
+
+    v2.0.0: Includes priority, category, due_date
+    """
 
     id: UUID
     user_id: str  # Better Auth uses TEXT for user.id

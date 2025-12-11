@@ -847,3 +847,304 @@ class TestValidationConstants:
         )
         # Should return validation error
         assert response.status_code == 422
+
+
+# =============================================================================
+# v2.0.0 Fields Tests (Priority, Category, Due Date)
+# =============================================================================
+
+
+class TestTaskPriorityField:
+    """Tests for v2.0.0 priority field."""
+
+    def test_create_task_with_default_priority(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Task created without priority gets 'medium' default."""
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "Test Priority Default"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()["priority"] == "medium"
+
+    def test_create_task_with_high_priority(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Task can be created with 'high' priority."""
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "Urgent Task", "priority": "high"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()["priority"] == "high"
+
+    def test_create_task_with_low_priority(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Task can be created with 'low' priority."""
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "Low Priority Task", "priority": "low"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()["priority"] == "low"
+
+    def test_update_task_priority(
+        self, client: TestClient, auth_headers: dict, sample_task: dict
+    ):
+        """Task priority can be updated."""
+        response = client.put(
+            f"/api/tasks/{sample_task['id']}",
+            json={"priority": "high"},
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["priority"] == "high"
+
+    def test_task_priority_in_read_response(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Priority is included in task read response."""
+        create_response = client.post(
+            "/api/tasks/",
+            json={"title": "Check Priority", "priority": "low"},
+            headers=auth_headers
+        )
+        task_id = create_response.json()["id"]
+
+        get_response = client.get(
+            f"/api/tasks/{task_id}",
+            headers=auth_headers
+        )
+        assert "priority" in get_response.json()
+        assert get_response.json()["priority"] == "low"
+
+
+class TestTaskCategoryField:
+    """Tests for v2.0.0 category field."""
+
+    def test_create_task_with_default_category(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Task created without category gets 'general' default."""
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "Test Category Default"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()["category"] == "general"
+
+    def test_create_task_with_work_category(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Task can be created with 'work' category."""
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "Work Task", "category": "work"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()["category"] == "work"
+
+    def test_create_task_with_custom_category(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Task can be created with custom category."""
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "Custom Category Task", "category": "fitness"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()["category"] == "fitness"
+
+    def test_update_task_category(
+        self, client: TestClient, auth_headers: dict, sample_task: dict
+    ):
+        """Task category can be updated."""
+        response = client.put(
+            f"/api/tasks/{sample_task['id']}",
+            json={"category": "personal"},
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["category"] == "personal"
+
+    def test_category_max_length(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Category at max length (50 chars) succeeds."""
+        max_category = "x" * 50
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "Max Category", "category": max_category},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert len(response.json()["category"]) == 50
+
+
+class TestTaskDueDateField:
+    """Tests for v2.0.0 due_date field."""
+
+    def test_create_task_with_no_due_date(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Task created without due_date has null due_date."""
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "No Due Date Task"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()["due_date"] is None
+
+    def test_create_task_with_due_date(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Task can be created with due_date."""
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "Task with Due Date", "due_date": "2025-12-25"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()["due_date"] == "2025-12-25"
+
+    def test_update_task_due_date(
+        self, client: TestClient, auth_headers: dict, sample_task: dict
+    ):
+        """Task due_date can be updated."""
+        response = client.put(
+            f"/api/tasks/{sample_task['id']}",
+            json={"due_date": "2025-12-31"},
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["due_date"] == "2025-12-31"
+
+    def test_due_date_format_iso8601(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Due date accepts ISO 8601 format (YYYY-MM-DD)."""
+        response = client.post(
+            "/api/tasks/",
+            json={"title": "ISO Date Task", "due_date": "2025-06-15"},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()["due_date"] == "2025-06-15"
+
+    def test_due_date_in_list_response(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Due date is included in task list response."""
+        client.post(
+            "/api/tasks/",
+            json={"title": "Due Date List Test", "due_date": "2025-01-15"},
+            headers=auth_headers
+        )
+
+        response = client.get("/api/tasks/", headers=auth_headers)
+        tasks = response.json()["tasks"]
+        task = next(t for t in tasks if t["title"] == "Due Date List Test")
+        assert task["due_date"] == "2025-01-15"
+
+
+class TestV2FieldsCombination:
+    """Tests for combining v2.0.0 fields (priority, category, due_date)."""
+
+    def test_create_task_with_all_v2_fields(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """Task can be created with all v2.0.0 fields."""
+        response = client.post(
+            "/api/tasks/",
+            json={
+                "title": "Complete v2 Task",
+                "description": "Has all v2.0.0 fields",
+                "priority": "high",
+                "category": "work",
+                "due_date": "2025-12-20"
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["priority"] == "high"
+        assert data["category"] == "work"
+        assert data["due_date"] == "2025-12-20"
+
+    def test_update_multiple_v2_fields(
+        self, client: TestClient, auth_headers: dict, sample_task: dict
+    ):
+        """Multiple v2.0.0 fields can be updated together."""
+        response = client.put(
+            f"/api/tasks/{sample_task['id']}",
+            json={
+                "priority": "low",
+                "category": "study",
+                "due_date": "2025-11-30"
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["priority"] == "low"
+        assert data["category"] == "study"
+        assert data["due_date"] == "2025-11-30"
+
+    def test_v2_fields_in_task_list(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """All v2.0.0 fields appear in task list response."""
+        client.post(
+            "/api/tasks/",
+            json={
+                "title": "v2 Fields in List",
+                "priority": "medium",
+                "category": "shopping",
+                "due_date": "2025-12-24"
+            },
+            headers=auth_headers
+        )
+
+        response = client.get("/api/tasks/", headers=auth_headers)
+        tasks = response.json()["tasks"]
+        task = next(t for t in tasks if t["title"] == "v2 Fields in List")
+        assert "priority" in task
+        assert "category" in task
+        assert "due_date" in task
+
+    def test_partial_v2_fields_update(
+        self, client: TestClient, auth_headers: dict, sample_task: dict
+    ):
+        """Updating one v2 field preserves others."""
+        # First set all v2 fields
+        client.put(
+            f"/api/tasks/{sample_task['id']}",
+            json={
+                "priority": "high",
+                "category": "work",
+                "due_date": "2025-12-25"
+            },
+            headers=auth_headers
+        )
+
+        # Update only priority
+        response = client.put(
+            f"/api/tasks/{sample_task['id']}",
+            json={"priority": "low"},
+            headers=auth_headers
+        )
+
+        data = response.json()
+        assert data["priority"] == "low"
+        # Other v2 fields should be preserved
+        assert data["category"] == "work"
+        assert data["due_date"] == "2025-12-25"

@@ -1,7 +1,7 @@
 """Task CRUD endpoints."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlmodel import Session, select
@@ -67,14 +67,18 @@ async def create_task(
             detail="Title must be 200 characters or less",
         )
 
-    # Create task
+    # Create task with v2.0.0 fields
     task = TaskDB(
         title=task_data.title.strip(),
         description=task_data.description or "",
         is_complete=False,
         user_id=user_id,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        # v2.0.0: New optional fields with defaults
+        priority=task_data.priority or "medium",
+        category=task_data.category or "general",
+        due_date=task_data.due_date,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
     session.add(task)
@@ -181,7 +185,7 @@ async def update_task(
         if value is not None:
             setattr(task, key, value)
 
-    task.updated_at = datetime.utcnow()
+    task.updated_at = datetime.now(UTC)
     session.add(task)
     session.commit()
     session.refresh(task)
@@ -277,7 +281,7 @@ async def toggle_task_completion(
 
     # Toggle completion status
     task.is_complete = not task.is_complete
-    task.updated_at = datetime.utcnow()
+    task.updated_at = datetime.now(UTC)
 
     session.add(task)
     session.commit()

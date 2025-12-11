@@ -1,149 +1,114 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-11
+**Last Updated**: 2025-12-12
 **Updated By**: AI Assistant (Claude Code)
-**Current Phase**: Phase I (2nd Iteration) - Console App v1 & v2 Complete
+**Current Phase**: Phase II/III (2nd Iteration) - Backend v2.0.0 Complete
 **Current Branch**: main
-**Current Version**: 05.001.000
+**Current Version**: 05.002.000
 
 ---
 
 ## Quick Status (30-Second Read)
 
 ### Current State
-- 🟢 Complete: 1st Iteration LOCKED (tag: `v1.0.0-iteration1`)
-- 🟢 Complete: Phase I (2nd Iteration) - Console App v1 (Basic) & v2 (Textual TUI)
-- 🟢 Complete: Phase II SIGNED OFF - 137 tests passing, deployed
-- 🟢 Complete: Phase III - All 7 MCP tools working, chat deployed
-- 🟢 Complete: Phase IV - Docker + Kubernetes + Helm (local Minikube)
-- 🟢 Complete: Phase V Local - Kafka + Dapr on Minikube WORKING
-- 🟡 Deferred: Phase V Cloud - GKE quota exceeded, pending increase
+- **Complete: 1st Iteration LOCKED** (tag: `v1.0.0-iteration1`)
+- **Complete: Phase I (2nd Iteration)** - Console App v1 (Basic) & v2 (Textual TUI)
+- **Complete: Phase II/III (1st Iteration) LOCKED** (tag: `v1.0.0-phase2-3-web`)
+- **In Progress: Phase II/III (2nd Iteration)** - Backend v2.0.0 fields done
+- **Complete: Phase IV** - Docker + Kubernetes + Helm (local Minikube)
+- **Complete: Phase V Local** - Kafka + Dapr on Minikube WORKING
+- **Deferred: Phase V Cloud** - GKE quota exceeded, pending increase
 
 ### Last Session Summary
 - What accomplished:
-  - ✅ **Phase I (2nd Iteration) COMPLETE**
-  - ✅ Created `console_app_v1/` - Basic CLI (in-memory, plain text menu)
-  - ✅ Created `console_app_v2/` - Enhanced Textual TUI with:
-    - Dark theme
-    - Sidebar with categories (All, Work, Personal, Study, Shopping, General)
-    - Status filters (Completed, Pending, Overdue)
-    - Priority filter dropdown
-    - Search input
-    - DataTable with row selection
-    - Detail bar showing selected task title & notes
-    - Stats bar (Total, Done, Pending, Overdue, % complete)
-    - Keyboard navigation (a=Add, e=Edit, d=Delete, Space=Toggle, r=Refresh, q=Quit)
-    - Modal dialogs for Add/Edit/Delete confirmation
-    - JSON persistence
-  - ✅ Fixed mouse escape code issue (`app.run(mouse=False)`)
-  - ✅ Fixed Textual reserved property name issue (`self._edit_task`)
-  - ✅ Created reusable skill: `.claude/skills/python-cli-tui.md`
+  - **v2.0.0 Backend Schema Update**:
+    - Added `priority` (high/medium/low), `category` (custom string), `due_date` (date) columns
+    - Created idempotent migration script `backend/scripts/migrate_v2.py`
+    - Migration successfully run on Neon production database
+    - Updated SQLModel schemas (TaskDB, TaskCreate, TaskUpdate, TaskRead)
+    - Fixed `datetime.utcnow()` deprecation warnings
+    - Added 19 new API tests for v2.0.0 fields (127 total tests passing)
+  - **Frontend TypeScript Types Updated**:
+    - Added `Priority` and `DefaultCategory` types
+    - Updated `Task`, `TaskCreate`, `TaskUpdate` interfaces
+    - Build passes successfully
+  - **Design Spec Created**:
+    - `specs/ui/design-spec-v2.md` - Comprehensive wireframes, color palette, typography,
+      component specifications, accessibility requirements (WCAG 2.1 AA)
+  - **Tag Created**: `v1.0.0-phase2-3-web` to secure 1st iteration Phase II/III
 - What learned:
-  - Textual has reserved property names (e.g., `task`) - use underscore prefix
-  - Mouse support causes terminal escape codes - disable with `mouse=False`
-  - Emojis have inconsistent widths - ⚠️ wider than ❗
-  - DataTable needs `move_cursor(row=0)` after refresh for selection to work
-  - OptionList scrollbar pushes content - use `scrollbar-size: 0 0`
+  - SQLModel `default_factory` needs lambda for `datetime.now(UTC)`
+  - Neon PostgreSQL accepts ISO 8601 date format for `due_date`
+  - Frontend build validates TypeScript types at compile time
 - What's next:
-  1. Work on additional bonus features (Voice, Multi-language)
-  2. Or continue with web app enhancements
+  1. Implement new GUI based on design-spec-v2.md
+  2. Add voice input functionality
+  3. Add Urdu language support with Roman Urdu conversion
 
 ---
 
-## 2nd Iteration - Phase I Console Apps
+## 2nd Iteration - Phase II/III Backend v2.0.0
 
-### console_app_v1 (Basic CLI)
-**Location**: `console_app_v1/`
-**Run**: `python -m console_app_v1.main`
-
-Features:
-- Plain text menu (number-based selection 0-6)
-- In-memory storage (no persistence)
-- Basic CRUD: Add, View, Update, Delete, Toggle Complete
-- Statistics display
-- Simple dataclass model
-
-Structure:
-```
-console_app_v1/
-├── __init__.py
-├── task.py          # Task dataclass
-├── task_manager.py  # CRUD operations
-├── main.py          # CLI entry point
-└── README.md
+### Database Schema Changes
+New columns added to `tasks` table:
+```sql
+priority VARCHAR(10) DEFAULT 'medium'    -- high, medium, low
+category VARCHAR(50) DEFAULT 'general'   -- custom categories allowed
+due_date DATE NULL                       -- optional due date
 ```
 
-### console_app_v2 (Textual TUI)
-**Location**: `console_app_v2/`
-**Run**: `python -m console_app_v2.main`
+Indexes created:
+- `idx_tasks_priority`
+- `idx_tasks_category`
+- `idx_tasks_due_date`
 
-Features:
-- Full Textual TUI with dark theme
-- Sidebar: Categories + Status filters
-- Top bar: Search + Priority filter
-- DataTable with zebra stripes, row cursor
-- Detail bar: Title + Notes of selected task
-- Stats bar: Total/Done/Pending/Overdue/Completion %
-- Keyboard shortcuts: a/e/d/Space/r/q
-- Modal dialogs: Add, Edit, Delete confirmation
-- JSON persistence (`tasks.json`)
-- Mouse disabled (prevents terminal escape codes)
+### Migration Script
+**Location**: `backend/scripts/migrate_v2.py`
+**Run**: `cd backend && uv run python scripts/migrate_v2.py`
+**Status**: Already run on Neon production database
 
-Structure:
-```
-console_app_v2/
-├── __init__.py
-├── models.py        # Task dataclass with validation
-├── services.py      # Business logic (CRUD, search, sort, stats)
-├── storage_json.py  # JSON persistence
-├── ui_cli.py        # Rich CLI fallback
-├── app.py           # Textual TUI application
-├── main.py          # Entry point
-└── tests/           # 50 unit tests
-```
+### API Changes
+All task endpoints now support v2.0.0 fields:
+- `POST /api/tasks/` - accepts priority, category, due_date
+- `PUT /api/tasks/{id}` - can update priority, category, due_date
+- `GET /api/tasks/` - returns priority, category, due_date in response
 
-Key Bindings:
-| Key | Action |
-|-----|--------|
-| a | Add new task |
-| e | Edit selected task |
-| d | Delete selected task |
-| Space | Toggle complete |
-| r | Refresh list |
-| q | Quit |
-| ↑/↓ | Navigate tasks |
+### Tests
+- 127 total tests passing (108 original + 19 new v2.0.0 tests)
+- New test classes: `TestTaskPriorityField`, `TestTaskCategoryField`,
+  `TestTaskDueDateField`, `TestV2FieldsCombination`
 
 ---
 
-## Reusable Intelligence Created
+## Design Spec v2.0.0
 
-### New Skill: Python CLI/TUI Development
-**File**: `.claude/skills/python-cli-tui.md`
+**Location**: `specs/ui/design-spec-v2.md`
 
-Covers:
-- Two-tier architecture (v1 basic, v2 enhanced)
-- Textual TUI patterns (App, ModalScreen, DataTable)
-- CSS layout tips for sidebars, filters, detail bars
-- Common gotchas (mouse codes, reserved names, emoji widths)
-- JSON storage pattern
-- Testing patterns
+Key Design Decisions:
+- **Dark Mode**: GitHub-inspired (#0D1117 base, not pure black)
+- **Typography**: Inter (UI) + Noto Nastaliq Urdu (Urdu text)
+- **Layout**: 260px sidebar + main content (responsive)
+- **Accessibility**: WCAG 2.1 AA compliant, 4.5:1 contrast ratio
+- **Voice Input**: Web Speech API integration
+- **Urdu Support**: RTL text, Roman Urdu auto-conversion via backend API
 
 ---
 
-## 1st Iteration Lock (PROTECTED)
+## 1st Iteration Locks (PROTECTED)
 
+### Phase I - Console Apps
 **Tag**: `v1.0.0-iteration1`
-**Branch**: `release/v1.0.0`
-**Status**: LOCKED - Do not modify
+**Status**: LOCKED
 
-To access 1st iteration demo:
-```bash
-git checkout v1.0.0-iteration1
-```
+### Phase II/III - Web App
+**Tag**: `v1.0.0-phase2-3-web`
+**Status**: LOCKED
 
-To return to current work:
+To access:
 ```bash
-git checkout main
+git checkout v1.0.0-iteration1      # Console apps
+git checkout v1.0.0-phase2-3-web    # Web app 1st iteration
+git checkout main                   # Current work
 ```
 
 ---
@@ -152,20 +117,12 @@ git checkout main
 
 | Service | Platform | URL | Status |
 |---------|----------|-----|--------|
-| Frontend | Vercel | https://evolution-to-do.vercel.app | ✅ Live |
-| Backend | Railway | (Railway URL) | ✅ Live |
-| Database | Neon | PostgreSQL | ✅ Connected |
-| Local K8s | Minikube | localhost (port-forward) | ✅ Working |
-| Console v1 | Local | `python -m console_app_v1.main` | ✅ Ready |
-| Console v2 | Local | `python -m console_app_v2.main` | ✅ Ready |
-
----
-
-## Dependencies for Console Apps
-
-```bash
-pip install textual rich
-```
+| Frontend | Vercel | https://evolution-to-do.vercel.app | Live |
+| Backend | Railway | (Railway URL) | Live |
+| Database | Neon | PostgreSQL (v2.0.0 schema) | Connected |
+| Local K8s | Minikube | localhost (port-forward) | Working |
+| Console v1 | Local | `python -m console_app_v1.main` | Ready |
+| Console v2 | Local | `python -m console_app_v2.main` | Ready |
 
 ---
 
@@ -173,13 +130,13 @@ pip install textual rich
 
 | Feature | Points | Status |
 |---------|--------|--------|
-| Reusable Intelligence | +200 | 🟡 Partial (skill created) |
-| Cloud-Native Blueprints | +200 | 🟡 Pending |
-| Multi-language Support | +100 | 🔴 Not started |
-| Voice Commands | +200 | 🔴 Not started |
+| Reusable Intelligence | +200 | Partial (skills created) |
+| Cloud-Native Blueprints | +200 | Pending |
+| Multi-language Support (Urdu) | +100 | In Progress (design done) |
+| Voice Commands | +200 | In Progress (design done) |
 
 **Total Bonus Available**: +700
-**Total Earned (Estimated)**: ~50 (RI skill)
+**Total Earned (Estimated)**: ~100 (RI skills + design specs)
 
 ---
 
@@ -187,6 +144,7 @@ pip install textual rich
 
 | Version | Phase | Description |
 |---------|-------|-------------|
+| 05.002.000 | II/III (2nd) | Backend v2.0.0 fields, design spec, frontend types |
 | 05.001.000 | I (2nd) | Phase I 2nd Iteration - Console v1 + v2 Complete |
 | 05.001.000 | V | Phase V Local Complete - Kafka + Dapr on Minikube |
 | 04.001.000 | IV | Phase IV Complete - Docker, K8s, Helm |
@@ -195,10 +153,42 @@ pip install textual rich
 
 ---
 
-## Next Session Options
+## Next Session Tasks
 
-1. **Voice Commands** (+200 pts) - Add speech recognition to console app
-2. **Multi-language** (+100 pts) - Add Urdu support
-3. **Cloud-Native Blueprints** (+200 pts) - Create agent skills for deployment
-4. **Continue to Phase II enhancements** - Web app improvements
-5. **Resume GKE deployment** - When quota approved
+1. **Implement New GUI** based on `specs/ui/design-spec-v2.md`:
+   - Update Header component with voice button
+   - Update Sidebar with categories and filters
+   - Enhance TaskItem with priority badges and due dates
+   - Add task filtering by priority, category, due date
+
+2. **Voice Input** (+200 pts):
+   - Add VoiceInputButton component
+   - Integrate Web Speech API
+   - Parse spoken task descriptions
+
+3. **Urdu Language Support** (+100 pts):
+   - Add Noto Nastaliq Urdu font
+   - Create Roman Urdu to Urdu conversion API endpoint
+   - Add RTL support for chat messages
+
+---
+
+## Commands Reference
+
+```bash
+# Backend development
+cd backend
+uv run uvicorn src.api.main:app --reload
+uv run pytest                           # 127 tests
+
+# Frontend development
+cd frontend
+npm run dev
+npm run build
+
+# Migration (already done)
+cd backend
+uv run python scripts/migrate_v2.py
+```
+
+---
