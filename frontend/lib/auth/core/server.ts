@@ -33,7 +33,7 @@ const authConfig: Parameters<typeof betterAuth>[0] = {
   trustedOrigins: [
     env.BETTER_AUTH_URL,
     "https://evolution-to-do.vercel.app",
-    "https://iteration1-evolution-todo.vercel.app", // iteration-1 stable alias
+    "https://evolution-todo-v1.vercel.app", // iteration-1 separate project
   ].filter(Boolean) as string[],
   // Production OAuth configuration for Vercel
   // Note: Better Auth v1.4.5 handles cookie security automatically based on NODE_ENV
