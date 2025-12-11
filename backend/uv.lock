@@ -968,6 +968,7 @@ version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "mcp" },
     { name = "openai" },
     { name = "psycopg2-binary" },
@@ -988,6 +989,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "mcp", specifier = ">=1.23.3" },
     { name = "openai", specifier = ">=2.9.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.9" },

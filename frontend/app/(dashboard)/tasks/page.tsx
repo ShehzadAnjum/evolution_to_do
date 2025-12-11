@@ -10,6 +10,7 @@ import {
   CategoryFilter,
   PriorityFilter,
 } from "@/components/tasks";
+import { ChatPanel } from "@/components/chat";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { SignOutButton } from "@/app/dashboard/SignOutButton";
 import { getAuthToken } from "@/lib/auth-token";
@@ -33,6 +34,9 @@ export default function TasksPage() {
 
   // Mobile sidebar toggle
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Chat panel toggle
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     loadTasks();
@@ -259,7 +263,7 @@ export default function TasksPage() {
             </h1>
           </div>
 
-          {/* Right: Search, Theme, User */}
+          {/* Right: Search, Chat, Theme, User */}
           <div className="flex items-center gap-3">
             {/* Search */}
             <div className="hidden sm:block relative">
@@ -274,6 +278,15 @@ export default function TasksPage() {
                 🔍
               </span>
             </div>
+
+            {/* Chat Toggle */}
+            <button
+              onClick={() => setChatOpen(true)}
+              className="p-2 hover:bg-secondary rounded-lg transition-colors"
+              title="Open AI Assistant"
+            >
+              <span className="text-lg">🤖</span>
+            </button>
 
             <ThemeToggle />
             <SignOutButton />
@@ -361,6 +374,9 @@ export default function TasksPage() {
           </div>
         </div>
       </main>
+
+      {/* Chat Panel */}
+      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }

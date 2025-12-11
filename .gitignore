@@ -89,3 +89,5 @@ frontend/.env*.local
 research/.venv/
 research/__pycache__/
 
+.vercel
+.env*.local
