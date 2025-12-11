@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Task, TaskCreate } from "@/lib/types";
+import type { Task, TaskCreate, Priority, DefaultCategory } from "@/lib/types";
 
 interface TaskFormProps {
   onSubmit: (data: TaskCreate) => Promise<void>;
@@ -12,6 +12,20 @@ interface TaskFormProps {
   onCancel?: () => void;
   isEdit?: boolean;
 }
+
+const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
+  { value: "high", label: "High", color: "text-priority-high" },
+  { value: "medium", label: "Medium", color: "text-priority-medium" },
+  { value: "low", label: "Low", color: "text-priority-low" },
+];
+
+const CATEGORY_OPTIONS: { value: string; label: string; icon: string }[] = [
+  { value: "general", label: "General", icon: "📋" },
+  { value: "work", label: "Work", icon: "💼" },
+  { value: "personal", label: "Personal", icon: "🏠" },
+  { value: "study", label: "Study", icon: "📚" },
+  { value: "shopping", label: "Shopping", icon: "🛒" },
+];
 
 export function TaskForm({
   onSubmit,
@@ -21,8 +35,22 @@ export function TaskForm({
 }: TaskFormProps) {
   const [title, setTitle] = useState(initialData?.title || "");
   const [description, setDescription] = useState(initialData?.description || "");
+  const [priority, setPriority] = useState<Priority>(initialData?.priority || "medium");
+  const [category, setCategory] = useState(initialData?.category || "general");
+  const [dueDate, setDueDate] = useState(initialData?.due_date || "");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Update form when initialData changes (for edit mode)
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title);
+      setDescription(initialData.description || "");
+      setPriority(initialData.priority || "medium");
+      setCategory(initialData.category || "general");
+      setDueDate(initialData.due_date || "");
+    }
+  }, [initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,10 +71,17 @@ export function TaskForm({
       await onSubmit({
         title: title.trim(),
         description: description.trim() || undefined,
+        priority,
+        category,
+        due_date: dueDate || undefined,
       });
       if (!isEdit) {
+        // Reset form after successful create
         setTitle("");
         setDescription("");
+        setPriority("medium");
+        setCategory("general");
+        setDueDate("");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save task");
@@ -57,6 +92,7 @@ export function TaskForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Title */}
       <div className="space-y-2">
         <Label htmlFor="title">Title *</Label>
         <Input
@@ -68,9 +104,11 @@ export function TaskForm({
           maxLength={200}
           disabled={isLoading}
           required
+          className="bg-background"
         />
       </div>
 
+      {/* Description */}
       <div className="space-y-2">
         <Label htmlFor="description">Description</Label>
         <Input
@@ -81,11 +119,64 @@ export function TaskForm({
           placeholder="Add more details (optional)"
           maxLength={2000}
           disabled={isLoading}
+          className="bg-background"
         />
       </div>
 
+      {/* Priority, Category, Due Date Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Priority */}
+        <div className="space-y-2">
+          <Label htmlFor="priority">Priority</Label>
+          <select
+            id="priority"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as Priority)}
+            disabled={isLoading}
+            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {PRIORITY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.value === "high" ? "🔴" : opt.value === "medium" ? "🟡" : "🟢"} {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Category */}
+        <div className="space-y-2">
+          <Label htmlFor="category">Category</Label>
+          <select
+            id="category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            disabled={isLoading}
+            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {CATEGORY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.icon} {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Due Date */}
+        <div className="space-y-2">
+          <Label htmlFor="dueDate">Due Date</Label>
+          <Input
+            id="dueDate"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            disabled={isLoading}
+            className="bg-background"
+          />
+        </div>
+      </div>
+
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       )}
 
       <div className="flex gap-2">

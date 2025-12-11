@@ -18,10 +18,11 @@ export function TaskList({
 }: TaskListProps) {
   if (tasks.length === 0) {
     return (
-      <div className="text-center py-12 bg-gray-50 rounded-lg">
-        <p className="text-gray-500 text-lg">No tasks yet</p>
-        <p className="text-gray-400 text-sm mt-1">
-          Add your first task above to get started
+      <div className="text-center py-16 px-4">
+        <div className="text-6xl mb-4">📝</div>
+        <h3 className="text-xl font-semibold text-foreground mb-2">No tasks found</h3>
+        <p className="text-muted-foreground max-w-sm mx-auto">
+          Add your first task above or adjust your filters to see more tasks.
         </p>
       </div>
     );

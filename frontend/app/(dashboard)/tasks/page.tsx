@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TaskForm, TaskList, TaskSummary } from "@/components/tasks";
+import {
+  TaskForm,
+  TaskList,
+  Sidebar,
+  FilterView,
+  CategoryFilter,
+  PriorityFilter,
+} from "@/components/tasks";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { SignOutButton } from "@/app/dashboard/SignOutButton";
 import { getAuthToken } from "@/lib/auth-token";
 import type { Task, TaskCreate, TaskUpdate, TaskListResponse } from "@/lib/types";
@@ -17,6 +25,15 @@ export default function TasksPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
+  // Filter states
+  const [activeView, setActiveView] = useState<FilterView>("all");
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
+  const [activePriority, setActivePriority] = useState<PriorityFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Mobile sidebar toggle
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   useEffect(() => {
     loadTasks();
   }, []);
@@ -26,7 +43,6 @@ export default function TasksPage() {
       setLoading(true);
       setError(null);
 
-      // Get JWT token from Better Auth
       const token = await getAuthToken();
       if (!token) {
         setError("Please log in to view your tasks.");
@@ -41,9 +57,8 @@ export default function TasksPage() {
       setCompleted(response.completed);
       console.log("Tasks loaded successfully:", response);
     } catch (err: any) {
-      // Handle authentication errors gracefully
       console.error("Error loading tasks:", err);
-      
+
       if (err.statusCode === 401 || err.statusCode === 422) {
         setError(
           "Authentication required. Please log in to view your tasks. " +
@@ -64,6 +79,53 @@ export default function TasksPage() {
     }
   };
 
+  // Filter tasks based on active filters
+  const filteredTasks = useMemo(() => {
+    let result = [...tasks];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    // View filter
+    switch (activeView) {
+      case "today":
+        result = result.filter(t => t.due_date === todayStr && !t.is_complete);
+        break;
+      case "upcoming":
+        result = result.filter(t => {
+          if (!t.due_date || t.is_complete) return false;
+          return new Date(t.due_date) >= today;
+        });
+        break;
+      case "completed":
+        result = result.filter(t => t.is_complete);
+        break;
+      // "all" - no filter
+    }
+
+    // Category filter
+    if (activeCategory !== "all") {
+      result = result.filter(t => t.category === activeCategory);
+    }
+
+    // Priority filter
+    if (activePriority !== "all") {
+      result = result.filter(t => t.priority === activePriority);
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        t =>
+          t.title.toLowerCase().includes(query) ||
+          t.description?.toLowerCase().includes(query)
+      );
+    }
+
+    return result;
+  }, [tasks, activeView, activeCategory, activePriority, searchQuery]);
+
   const handleCreateTask = async (taskData: TaskCreate) => {
     try {
       setError(null);
@@ -74,14 +136,11 @@ export default function TasksPage() {
         return;
       }
       const newTask = await api.createTask(token, taskData);
-
-      // Reload tasks to get updated stats
       await loadTasks();
-
       setSuccessMessage(`Task "${newTask.title}" created successfully!`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      throw err; // Let TaskForm handle the error
+      throw err;
     }
   };
 
@@ -96,15 +155,12 @@ export default function TasksPage() {
         return;
       }
       const updatedTask = await api.updateTask(token, editingTask.id, taskData as TaskUpdate);
-
-      // Reload tasks to get updated data
       await loadTasks();
-
       setEditingTask(null);
       setSuccessMessage(`Task "${updatedTask.title}" updated successfully!`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      throw err; // Let TaskForm handle the error
+      throw err;
     }
   };
 
@@ -118,10 +174,7 @@ export default function TasksPage() {
         return;
       }
       await api.deleteTask(token, taskId);
-
-      // Reload tasks to get updated data
       await loadTasks();
-
       setSuccessMessage("Task deleted successfully!");
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
@@ -139,8 +192,6 @@ export default function TasksPage() {
         return;
       }
       await api.toggleComplete(token, taskId);
-
-      // Reload tasks to get updated data and stats
       await loadTasks();
     } catch (err: any) {
       setError(err.message || "Failed to update task status");
@@ -150,71 +201,166 @@ export default function TasksPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Loading tasks...</p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin text-4xl mb-4">⏳</div>
+          <p className="text-muted-foreground">Loading tasks...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-8">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-              My Tasks
-            </h1>
-            <TaskSummary total={total} completed={completed} />
-          </div>
-          <SignOutButton />
-        </div>
+    <div className="min-h-screen bg-background flex">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-        {/* Success Message */}
-        {successMessage && (
-          <div className="mb-4 p-3 bg-green-100 border-2 border-green-400 rounded-lg text-green-900 font-medium">
-            {successMessage}
-          </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border-2 border-red-400 rounded-lg text-red-900 font-medium">
-            {error}
-            <button
-              onClick={loadTasks}
-              className="ml-4 text-sm font-semibold underline hover:no-underline"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Add Task Form */}
-        <Card className="mb-8 border-accent/20 shadow-lg shadow-accent/5">
-          <CardHeader>
-            <CardTitle>
-              {editingTask ? "Edit Task" : "Add New Task"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TaskForm
-              onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
-              initialData={editingTask || undefined}
-              isEdit={!!editingTask}
-              onCancel={editingTask ? () => setEditingTask(null) : undefined}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Task List */}
-        <TaskList
+      {/* Sidebar */}
+      <div
+        className={`
+          fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        `}
+      >
+        <Sidebar
           tasks={tasks}
-          onToggleComplete={handleToggleComplete}
-          onDelete={handleDeleteTask}
-          onEdit={setEditingTask}
+          activeView={activeView}
+          activeCategory={activeCategory}
+          activePriority={activePriority}
+          onViewChange={(v) => { setActiveView(v); setSidebarOpen(false); }}
+          onCategoryChange={(c) => { setActiveCategory(c); setSidebarOpen(false); }}
+          onPriorityChange={(p) => { setActivePriority(p); setSidebarOpen(false); }}
         />
       </div>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-h-screen">
+        {/* Header */}
+        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 lg:px-8 h-16 flex items-center justify-between">
+          {/* Left: Menu button (mobile) + Title */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 hover:bg-secondary rounded-lg"
+            >
+              ☰
+            </button>
+            <h1 className="text-xl font-semibold text-foreground">
+              {activeView === "all" ? "All Tasks" :
+               activeView === "today" ? "Today" :
+               activeView === "upcoming" ? "Upcoming" : "Completed"}
+              {activeCategory !== "all" && ` • ${activeCategory}`}
+              {activePriority !== "all" && ` • ${activePriority} priority`}
+            </h1>
+          </div>
+
+          {/* Right: Search, Theme, User */}
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="hidden sm:block relative">
+              <input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-48 lg:w-64 h-9 px-3 pr-8 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                🔍
+              </span>
+            </div>
+
+            <ThemeToggle />
+            <SignOutButton />
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <div className="flex-1 p-4 lg:p-8 overflow-y-auto">
+          <div className="max-w-3xl mx-auto space-y-6">
+            {/* Success Message */}
+            {successMessage && (
+              <div className="p-3 bg-success/10 border border-success/30 rounded-lg text-success font-medium">
+                ✅ {successMessage}
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive font-medium">
+                ⚠️ {error}
+                <button
+                  onClick={loadTasks}
+                  className="ml-4 text-sm font-semibold underline hover:no-underline"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Mobile Search */}
+            <div className="sm:hidden">
+              <input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-10 px-4 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {/* Add Task Form */}
+            <Card className="border-border shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">
+                  {editingTask ? "Edit Task" : "Add New Task"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TaskForm
+                  onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
+                  initialData={editingTask || undefined}
+                  isEdit={!!editingTask}
+                  onCancel={editingTask ? () => setEditingTask(null) : undefined}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Task Count */}
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                Showing {filteredTasks.length} of {tasks.length} tasks
+              </span>
+              {(activeView !== "all" || activeCategory !== "all" || activePriority !== "all" || searchQuery) && (
+                <button
+                  onClick={() => {
+                    setActiveView("all");
+                    setActiveCategory("all");
+                    setActivePriority("all");
+                    setSearchQuery("");
+                  }}
+                  className="text-primary hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+
+            {/* Task List */}
+            <TaskList
+              tasks={filteredTasks}
+              onToggleComplete={handleToggleComplete}
+              onDelete={handleDeleteTask}
+              onEdit={setEditingTask}
+            />
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
