@@ -37,9 +37,9 @@
 
   /* v2.0.0: Dark Mode - GitHub-inspired (#0D1117 base) */
   .dark {
-    --background: 215 28% 7%;        /* #0D1117 */
+    --background: 215 28% 5%;        /* Darker outer: #0A0D12 */
     --foreground: 210 17% 93%;       /* #E6EDF3 */
-    --card: 215 25% 11%;             /* #161B22 */
+    --card: 215 25% 11%;             /* #161B22 - inner cards/panels */
     --card-foreground: 210 17% 93%;
     --popover: 215 22% 14%;          /* #21262D */
     --popover-foreground: 210 17% 93%;

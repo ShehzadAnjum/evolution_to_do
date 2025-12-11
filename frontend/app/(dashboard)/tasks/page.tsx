@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   TaskForm,
   TaskList,
@@ -13,6 +12,12 @@ import {
 import { ChatPanel } from "@/components/chat";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { SignOutButton } from "@/app/dashboard/SignOutButton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getAuthToken } from "@/lib/auth-token";
 import type { Task, TaskCreate, TaskUpdate, TaskListResponse } from "@/lib/types";
 import * as api from "@/lib/api";
@@ -37,6 +42,9 @@ export default function TasksPage() {
 
   // Chat panel toggle
   const [chatOpen, setChatOpen] = useState(false);
+
+  // Task dialog toggle
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
   useEffect(() => {
     loadTasks();
@@ -141,6 +149,7 @@ export default function TasksPage() {
       }
       const newTask = await api.createTask(token, taskData);
       await loadTasks();
+      setTaskDialogOpen(false);
       setSuccessMessage(`Task "${newTask.title}" created successfully!`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
@@ -161,6 +170,7 @@ export default function TasksPage() {
       const updatedTask = await api.updateTask(token, editingTask.id, taskData as TaskUpdate);
       await loadTasks();
       setEditingTask(null);
+      setTaskDialogOpen(false);
       setSuccessMessage(`Task "${updatedTask.title}" updated successfully!`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
@@ -215,7 +225,7 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen overflow-hidden bg-secondary/30 dark:bg-background flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -224,10 +234,11 @@ export default function TasksPage() {
         />
       )}
 
-      {/* Sidebar */}
-      <div
+      {/* Sidebar - Fixed with independent scroll */}
+      <aside
         className={`
-          fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300
+          fixed lg:relative inset-y-0 left-0 z-50 h-screen
+          transform transition-transform duration-300
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
@@ -240,12 +251,12 @@ export default function TasksPage() {
           onCategoryChange={(c) => { setActiveCategory(c); setSidebarOpen(false); }}
           onPriorityChange={(p) => { setActivePriority(p); setSidebarOpen(false); }}
         />
-      </div>
+      </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-screen">
-        {/* Header */}
-        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 lg:px-8 h-16 flex items-center justify-between">
+      {/* Main Content - Takes remaining width, has its own scroll */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Header - Sticky */}
+        <header className="shrink-0 z-30 bg-card border-b border-border px-4 lg:px-8 h-16 flex items-center justify-between">
           {/* Left: Menu button (mobile) + Title */}
           <div className="flex items-center gap-4">
             <button
@@ -293,8 +304,8 @@ export default function TasksPage() {
           </div>
         </header>
 
-        {/* Content Area */}
-        <div className="flex-1 p-4 lg:p-8 overflow-y-auto">
+        {/* Content Area - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
           <div className="max-w-3xl mx-auto space-y-6">
             {/* Success Message */}
             {successMessage && (
@@ -327,23 +338,6 @@ export default function TasksPage() {
               />
             </div>
 
-            {/* Add Task Form */}
-            <Card className="border-border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">
-                  {editingTask ? "Edit Task" : "Add New Task"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TaskForm
-                  onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
-                  initialData={editingTask || undefined}
-                  isEdit={!!editingTask}
-                  onCancel={editingTask ? () => setEditingTask(null) : undefined}
-                />
-              </CardContent>
-            </Card>
-
             {/* Task Count */}
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
@@ -369,11 +363,55 @@ export default function TasksPage() {
               tasks={filteredTasks}
               onToggleComplete={handleToggleComplete}
               onDelete={handleDeleteTask}
-              onEdit={setEditingTask}
+              onEdit={(task) => {
+                setEditingTask(task);
+                setTaskDialogOpen(true);
+              }}
             />
           </div>
         </div>
       </main>
+
+      {/* Floating Add Task Button */}
+      <button
+        onClick={() => {
+          setEditingTask(null);
+          setTaskDialogOpen(true);
+        }}
+        className="fixed bottom-6 right-6 z-30 w-14 h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+        title="Add New Task"
+      >
+        <span className="text-2xl font-light transition-transform group-hover:rotate-90 duration-200">+</span>
+        <span className="absolute right-full mr-3 px-3 py-1.5 bg-popover text-popover-foreground text-sm rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+          Add New Task
+        </span>
+      </button>
+
+      {/* Add/Edit Task Dialog */}
+      <Dialog
+        open={taskDialogOpen}
+        onOpenChange={(open) => {
+          setTaskDialogOpen(open);
+          if (!open) setEditingTask(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editingTask ? "Edit Task" : "Add New Task"}
+            </DialogTitle>
+          </DialogHeader>
+          <TaskForm
+            onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
+            initialData={editingTask || undefined}
+            isEdit={!!editingTask}
+            onCancel={() => {
+              setTaskDialogOpen(false);
+              setEditingTask(null);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Chat Panel */}
       <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />

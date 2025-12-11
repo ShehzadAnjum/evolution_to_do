@@ -73,8 +73,13 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
         };
         setMessages((prev) => [...prev, assistantMessage]);
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to send message";
+        let errorMessage = err instanceof Error ? err.message : "Failed to send message";
+        // Handle common backend errors
+        if (errorMessage.includes("Method Not Allowed") || errorMessage.includes("405")) {
+          errorMessage = "Chat service is currently unavailable. Please try again later.";
+        } else if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
+          errorMessage = "Cannot connect to chat service. Please check your connection.";
+        }
         setError(errorMessage);
         setMessages((prev) => prev.slice(0, -1));
       } finally {
