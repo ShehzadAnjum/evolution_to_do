@@ -44,8 +44,15 @@ app = FastAPI(
 # Configure CORS
 settings = get_settings()
 origins = settings.cors_origins.split(",") if "," in settings.cors_origins else [settings.cors_origins]
-# Add common development ports
-origins.extend(["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"])
+# Add common development ports and known frontend deployments
+origins.extend([
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "https://evolution-to-do.vercel.app",
+    "https://evolution-todo-v1.vercel.app",  # iteration-1 deployment
+])
 
 app.add_middleware(
     CORSMiddleware,
