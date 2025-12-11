@@ -134,10 +134,21 @@ Settings → Branches → Add rule:
 **Total Bonus Points Available**: +700
 
 ### 2nd Iteration Strategy
-1. Start from Phase I on `main` branch
-2. Implement bonus features progressively
-3. Keep `release/v1.0.0` as fallback demo
+1. **Revisit Phase I console app** with bonus features
+2. Work on `main` branch (1st iteration locked in `release/v1.0.0`)
+3. Keep `release/v1.0.0` as fallback demo - NEVER touch
 4. Tag iterations: `v1.1.0`, `v1.2.0`, etc.
+
+### 2nd Iteration Starting Point
+**Option A Selected**: Revisit Phase I console app with bonus features
+
+Suggested approach:
+1. Add **Voice Commands** (+200 pts) to console app
+2. Add **Multi-language Support** (+100 pts) - Urdu in console
+3. Add **Reusable Intelligence** (+200 pts) - document patterns
+4. Add **Cloud-Native Blueprints** (+200 pts) - agent skills
+
+Total bonus available: +700 points
 
 ---
 
