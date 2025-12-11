@@ -27,7 +27,7 @@ from .storage_json import JsonStorage
 # Icons for visual cues
 PRIORITY_ICONS = {"high": "🔴", "medium": "🟡", "low": "🟢"}
 CATEGORY_ICONS = {"work": "💼", "personal": "🏠", "study": "📚", "shopping": "🛒", "general": "📌"}
-STATUS_ICONS = {"completed": "✅", "pending": "⏳", "overdue": "⚠️"}
+STATUS_ICONS = {"completed": "✅", "pending": "⏳", "overdue": "❗"}
 
 
 class AddTaskScreen(ModalScreen[Task | None]):
@@ -159,21 +159,21 @@ class EditTaskScreen(ModalScreen[Task | None]):
     }
     """
 
-    def __init__(self, task: Task):
+    def __init__(self, edit_task: Task):
         super().__init__()
-        self.task = task
+        self._edit_task = edit_task
 
     def compose(self) -> ComposeResult:
         with Vertical(id="edit-dialog"):
             yield Label("✏️ Edit Task", classes="title")
             yield Label("Title *")
-            yield Input(value=self.task.title, id="title-input")
+            yield Input(value=self._edit_task.title, id="title-input")
             yield Label("Notes")
-            yield Input(value=self.task.notes, id="notes-input")
+            yield Input(value=self._edit_task.notes, id="notes-input")
             yield Label("Priority")
             yield Select(
                 [("🟢 Low", "low"), ("🟡 Medium", "medium"), ("🔴 High", "high")],
-                value=self.task.priority,
+                value=self._edit_task.priority,
                 id="priority-select",
             )
             yield Label("Category")
@@ -185,12 +185,12 @@ class EditTaskScreen(ModalScreen[Task | None]):
                     ("📚 Study", "study"),
                     ("🛒 Shopping", "shopping"),
                 ],
-                value=self.task.category,
+                value=self._edit_task.category,
                 id="category-select",
             )
             yield Label("Due Date (YYYY-MM-DD)")
             yield Input(
-                value=self.task.due_date.isoformat() if self.task.due_date else "",
+                value=self._edit_task.due_date.isoformat() if self._edit_task.due_date else "",
                 id="due-input",
             )
             with Horizontal(id="button-row"):
@@ -217,12 +217,12 @@ class EditTaskScreen(ModalScreen[Task | None]):
                 self.notify("Invalid date format! Use YYYY-MM-DD", severity="error")
                 return
 
-        self.task.title = title
-        self.task.notes = notes
-        self.task.priority = priority
-        self.task.category = category
-        self.task.due_date = due_date
-        self.dismiss(self.task)
+        self._edit_task.title = title
+        self._edit_task.notes = notes
+        self._edit_task.priority = priority
+        self._edit_task.category = category
+        self._edit_task.due_date = due_date
+        self.dismiss(self._edit_task)
 
     @on(Button.Pressed, "#cancel-btn")
     def cancel(self) -> None:
@@ -279,6 +279,9 @@ class TodoApp(App):
     TITLE = "Evolution Todo v2"
     SUB_TITLE = "Task Management TUI"
 
+    # Disable mouse support to prevent terminal escape code issues
+    ENABLE_COMMAND_PALETTE = False
+
     CSS = """
     Screen {
         background: $surface;
@@ -287,10 +290,14 @@ class TodoApp(App):
         layout: horizontal;
     }
     #sidebar {
-        width: 22;
+        width: 20;
         height: 100%;
-        border-right: solid $primary;
         padding: 1;
+        border-right: solid $primary;
+    }
+    #category-list {
+        height: 1fr;
+        scrollbar-size: 0 0;
     }
     #sidebar-title {
         text-align: center;
@@ -302,12 +309,15 @@ class TodoApp(App):
         height: 100%;
     }
     #filters {
-        height: 5;
+        height: 6;
         padding: 1;
         border-bottom: solid $primary;
+        align: left middle;
     }
     #filters Label {
         margin-right: 1;
+        height: 3;
+        content-align: center middle;
     }
     #filters Select {
         width: 20;
@@ -319,11 +329,20 @@ class TodoApp(App):
     #task-table {
         height: 1fr;
     }
+    DataTable > .datatable--header {
+        text-style: bold;
+    }
+    #detail-bar {
+        height: 4;
+        padding: 0 1;
+        border-top: solid $primary;
+        background: $surface-darken-1;
+    }
     #stats-bar {
         height: 3;
         padding: 0 1;
         border-top: solid $primary;
-        background: $surface-darken-1;
+        background: $surface-darken-2;
     }
     .category-item {
         padding: 0 1;
@@ -368,10 +387,10 @@ class TodoApp(App):
                     Option("📚 Study", id="study"),
                     Option("🛒 Shopping", id="shopping"),
                     Option("📌 General", id="general"),
-                    Option("─" * 15, id="sep", disabled=True),
+                    Option("─" * 14, id="sep", disabled=True),
                     Option("✅ Completed", id="completed"),
                     Option("⏳ Pending", id="pending"),
-                    Option("⚠️ Overdue", id="overdue"),
+                    Option("❗ Overdue", id="overdue"),
                     id="category-list",
                 )
             with Vertical(id="content"):
@@ -385,6 +404,8 @@ class TodoApp(App):
                         id="priority-filter",
                     )
                 yield DataTable(id="task-table")
+                with Horizontal(id="detail-bar"):
+                    yield Static("Select a task to view details", id="detail-display")
                 with Horizontal(id="stats-bar"):
                     yield Static("", id="stats-display")
         yield Footer()
@@ -394,7 +415,7 @@ class TodoApp(App):
         table = self.query_one("#task-table", DataTable)
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.add_columns("", "Status", "Title", "Priority", "Category", "Due Date")
+        table.add_columns("#", "Status", "Title", "Priority", "Category", "Due Date")
         self.load_and_display_tasks()
 
     def load_and_display_tasks(self) -> None:
@@ -435,11 +456,13 @@ class TodoApp(App):
         self.filtered_tasks = self.service.sort_tasks(filtered, by="priority")
         self.update_table()
         self.update_stats()
+        self.update_detail_bar()
 
     def update_table(self) -> None:
         """Update the task table with filtered tasks."""
         table = self.query_one("#task-table", DataTable)
         table.clear()
+        table.cursor_type = "row"
 
         for i, task in enumerate(self.filtered_tasks, 1):
             # Status icon
@@ -463,15 +486,22 @@ class TodoApp(App):
             # Title (truncate if needed)
             title = task.title[:40] + "..." if len(task.title) > 40 else task.title
 
+            # Pad values for alignment
+            priority_text = f"{priority_icon} {task.priority.title():<6}"
+
             table.add_row(
-                str(i),
-                status_icon,
-                title,
-                f"{priority_icon} {task.priority.title()}",
-                category_text,
+                f"{i:>2}",
+                f" {status_icon} ",
+                f"{title:<25}",
+                priority_text,
+                f"{category_text:<12}",
                 due_text,
                 key=task.id,
             )
+
+        # Select first row if there are tasks
+        if self.filtered_tasks:
+            table.move_cursor(row=0)
 
     def update_stats(self) -> None:
         """Update the stats bar."""
@@ -504,17 +534,33 @@ class TodoApp(App):
         self.search_text = event.value
         self.apply_filters()
 
+    @on(DataTable.RowHighlighted, "#task-table")
+    def on_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        """Handle row selection to update detail bar."""
+        self.update_detail_bar()
+
+    def update_detail_bar(self) -> None:
+        """Update the detail bar with selected task info."""
+        task = self.get_selected_task()
+        if task:
+            notes = task.notes if task.notes else "No notes"
+            detail_text = f"📝 {task.title} | Notes: {notes[:80]}"
+        else:
+            detail_text = "Select a task to view details"
+        self.query_one("#detail-display", Static).update(detail_text)
+
     def get_selected_task(self) -> Task | None:
         """Get the currently selected task from the table."""
         table = self.query_one("#task-table", DataTable)
         if table.row_count == 0:
             return None
         try:
-            row_key = table.get_row_at(table.cursor_row)
-            task_id = table.get_row_key(table.cursor_row)
-            return self.service.find_by_id(self.tasks, str(task_id.value))
+            cursor_row = table.cursor_row
+            if cursor_row is not None and 0 <= cursor_row < len(self.filtered_tasks):
+                return self.filtered_tasks[cursor_row]
         except Exception:
-            return None
+            pass
+        return None
 
     def action_add_task(self) -> None:
         """Open add task dialog."""
@@ -580,7 +626,7 @@ class TodoApp(App):
 def main():
     """Run the Textual TUI application."""
     app = TodoApp()
-    app.run()
+    app.run(mouse=False)  # Disable mouse to prevent terminal escape codes
 
 
 if __name__ == "__main__":
