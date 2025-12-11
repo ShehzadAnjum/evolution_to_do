@@ -117,8 +117,9 @@ git checkout main                   # Current work
 
 | Service | Platform | URL | Status |
 |---------|----------|-----|--------|
-| Frontend | Vercel | https://evolution-to-do.vercel.app | Live |
-| Backend | Railway | (Railway URL) | Live |
+| Frontend (v2) | Vercel | https://evolution-to-do.vercel.app | Live |
+| Frontend (v1) | Vercel | https://evolution-todo-v1.vercel.app | Live |
+| Backend | Railway | https://evolutiontodo-production-e1b6.up.railway.app | Live |
 | Database | Neon | PostgreSQL (v2.0.0 schema) | Connected |
 | Local K8s | Minikube | localhost (port-forward) | Working |
 | Console v1 | Local | `python -m console_app_v1.main` | Ready |
