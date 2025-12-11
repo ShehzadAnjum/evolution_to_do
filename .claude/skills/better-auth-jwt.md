@@ -28,9 +28,12 @@ import { nextCookies } from "better-auth/next-js";
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+  // ⚠️ IMPORTANT: Wildcards like "https://*.vercel.app" do NOT work!
+  // You must list each origin explicitly
   trustedOrigins: [
     process.env.BETTER_AUTH_URL || "http://localhost:3000",
-    "https://*.vercel.app",
+    "https://your-app.vercel.app",        // production
+    "https://your-app-v1.vercel.app",     // secondary deployment
   ],
   database: {
     dialect: "postgresql",
@@ -266,6 +269,27 @@ GOOGLE_CLIENT_SECRET=xxx
 | Session not persisting | Check cookie settings |
 | Token expired | Implement token refresh |
 | **Post-login redirect loop on Vercel** | **Check BOTH cookie names in middleware (see below)** |
+| **"Invalid origin" 403 error** | **Add origin explicitly to trustedOrigins (no wildcards!)** |
+| **redirect_uri_mismatch from Google** | **Add exact URI to Google Console, clear browser cache** |
+
+### CRITICAL: trustedOrigins Does NOT Support Wildcards
+
+```typescript
+// ❌ WRONG - This will NOT work
+trustedOrigins: ["https://*.vercel.app"]
+
+// ✅ CORRECT - List each domain explicitly
+trustedOrigins: [
+  env.BETTER_AUTH_URL,
+  "https://your-app.vercel.app",
+  "https://your-app-v1.vercel.app",
+]
+```
+
+**Error you'll see if using wildcards:**
+```
+ERROR [Better Auth]: Invalid origin: https://your-app.vercel.app
+```
 
 ### CRITICAL: Secure Cookie Names in Production
 
@@ -332,4 +356,5 @@ return session.exec(
 
 **Part of**: Evolution of Todo Reusable Intelligence
 **Phase**: II, III, IV, V
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-12
+**Related**: ADR-007, PHR-004

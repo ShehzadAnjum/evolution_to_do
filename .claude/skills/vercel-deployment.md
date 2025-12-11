@@ -143,20 +143,43 @@ export function getBetterAuthUrl(): string {
 
 ## Common Issues & Solutions
 
-### Issue: OAuth Redirect Loop
+### Issue: "Invalid origin" from Better Auth
 
-**Symptoms**: 
-- Login redirects indefinitely
-- Console shows "invalid redirect_uri"
+**Symptoms**:
+- 403 error on `/api/auth/sign-in/social` or `/api/auth/sign-in/email`
+- Vercel logs show: `ERROR [Better Auth]: Invalid origin: https://...`
+
+**Root Cause**: Better Auth does NOT support wildcard patterns in `trustedOrigins`.
 
 **Solution**:
 ```typescript
-// Ensure trustedOrigins includes Vercel domain
+// ❌ WRONG - wildcards don't work
 trustedOrigins: [
-  process.env.BETTER_AUTH_URL!,
   "https://*.vercel.app",
 ]
+
+// ✅ CORRECT - list each origin explicitly
+trustedOrigins: [
+  process.env.BETTER_AUTH_URL!,
+  "https://your-app.vercel.app",
+  "https://your-app-v1.vercel.app",
+]
 ```
+
+### Issue: OAuth Redirect Loop / redirect_uri_mismatch
+
+**Symptoms**:
+- Google shows "Access blocked: This app's request is invalid"
+- Error 400: redirect_uri_mismatch
+
+**Solution**:
+1. Check Google Cloud Console → Credentials → OAuth 2.0 Client
+2. Add **exact** redirect URI (no wildcards):
+   ```
+   https://your-app.vercel.app/api/auth/callback/google
+   ```
+3. Wait 2-5 minutes for propagation
+4. Clear browser cache or test in incognito
 
 ### Issue: 500 Error on API Routes
 
@@ -238,12 +261,71 @@ vercel logs --follow
 ```markdown
 - [ ] `npm run build` passes locally
 - [ ] All environment variables set in Vercel
-- [ ] OAuth redirect URIs configured
-- [ ] BETTER_AUTH_URL matches production domain
+- [ ] OAuth redirect URIs configured (exact match, no wildcards)
+- [ ] BETTER_AUTH_URL matches THIS deployment's domain
+- [ ] trustedOrigins includes THIS deployment's URL explicitly
+- [ ] Backend CORS allows THIS deployment's URL
 - [ ] DATABASE_URL accessible from Vercel region
 - [ ] No Node.js filesystem APIs in API routes
 - [ ] Images optimized or unoptimized flag set
 ```
+
+## Multi-Version Deployment
+
+To deploy multiple versions (e.g., v1 and v2) simultaneously:
+
+### Option 1: Separate Vercel Projects (Recommended)
+
+```bash
+# Create new project for v1
+rm -rf .vercel
+git checkout iteration-1
+cd frontend
+vercel --yes  # Creates new project
+
+# Add env vars in Vercel dashboard with correct URLs:
+# BETTER_AUTH_URL = https://your-app-v1.vercel.app
+# NEXT_PUBLIC_APP_URL = https://your-app-v1.vercel.app
+
+# Deploy to production
+vercel --prod --yes
+```
+
+### Required Updates for Each Deployment
+
+1. **Frontend trustedOrigins**:
+   ```typescript
+   trustedOrigins: [
+     env.BETTER_AUTH_URL,
+     "https://your-app.vercel.app",      // main
+     "https://your-app-v1.vercel.app",   // v1
+   ]
+   ```
+
+2. **Backend CORS**:
+   ```python
+   origins.extend([
+     "https://your-app.vercel.app",
+     "https://your-app-v1.vercel.app",
+   ])
+   ```
+
+3. **Google OAuth** (Cloud Console):
+   ```
+   https://your-app.vercel.app/api/auth/callback/google
+   https://your-app-v1.vercel.app/api/auth/callback/google
+   ```
+
+### Why Separate Projects?
+
+| Approach | Problem |
+|----------|---------|
+| Branch previews | URLs change each deploy, break OAuth |
+| Vercel aliases | Must re-apply after each deploy |
+| Same project, different branches | Only one production URL |
+| **Separate projects** | ✅ Stable URLs, independent deploys |
+
+See: ADR-007 Multi-Version Deployment Strategy
 
 ## Serverless Compatibility
 
@@ -288,8 +370,24 @@ import { APP_VERSION } from "@/lib/version";
 </div>
 ```
 
+## Troubleshooting Checklist
+
+When deployment isn't working:
+
+```markdown
+1. [ ] Check Vercel logs: `vercel logs --follow`
+2. [ ] Verify env vars: `vercel env ls`
+3. [ ] Test in incognito (clear OAuth cache)
+4. [ ] Check Better Auth trustedOrigins (no wildcards!)
+5. [ ] Check backend CORS origins
+6. [ ] Verify Google OAuth redirect URIs (exact match)
+7. [ ] Wait 2-5 min after Google OAuth changes
+8. [ ] Check Vercel deployment protection settings
+```
+
 ---
 
 **Part of**: Evolution of Todo Reusable Intelligence
 **Phase**: II, III, IV, V
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-12
+**Related**: ADR-007, PHR-004
