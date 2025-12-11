@@ -1,10 +1,11 @@
 [project]
-name = "evolution-todo-console"
+name = "evolution-todo-console-v2"
 version = "2.0.0"
-description = "Beautiful console todo application with Rich UI"
+description = "Beautiful console todo application with Textual TUI"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "textual>=0.47.0",
     "rich>=13.0.0",
 ]
 
@@ -15,12 +16,12 @@ dev = [
 ]
 
 [project.scripts]
-todo = "console_app.main:main"
+todo = "console_app_v2.main:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["..", "."]
 
 [tool.coverage.run]
-source = ["console_app"]
+source = ["console_app_v2"]
 omit = ["*/tests/*"]

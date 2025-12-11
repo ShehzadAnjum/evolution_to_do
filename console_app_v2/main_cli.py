@@ -1,18 +1,10 @@
 #!/usr/bin/env python3
-"""Evolution Todo - Console Application Entry Point.
+"""Evolution Todo v2 - Rich CLI Mode (Legacy).
 
-A beautiful, feature-rich console todo application.
+This is the legacy Rich-based CLI interface.
+Run with: python -m console_app_v2.main --cli
 
-Usage:
-    python -m console_app.main
-    python console_app/main.py
-
-Features:
-    - Rich CLI with emojis and colors
-    - Task metadata (priority, due date, category, notes)
-    - JSON local storage
-    - Search and filter
-    - Statistics dashboard
+For the Textual TUI, run without --cli flag.
 """
 
 import signal
@@ -27,7 +19,6 @@ from . import ui_cli as ui
 
 def setup_storage() -> JsonStorage:
     """Initialize storage with default location."""
-    # Store tasks.json in the console_app directory
     app_dir = Path(__file__).parent
     return JsonStorage(str(app_dir / "tasks.json"))
 
@@ -247,7 +238,7 @@ def handle_interrupt(signum, frame):
 
 
 def main():
-    """Main application loop."""
+    """Main application loop (Rich CLI mode)."""
     # Setup signal handler for Ctrl+C
     signal.signal(signal.SIGINT, handle_interrupt)
 

@@ -4,8 +4,8 @@ import pytest
 from pathlib import Path
 from datetime import date
 
-from console_app.models import Task
-from console_app.storage_json import JsonStorage
+from console_app_v2.models import Task
+from console_app_v2.storage_json import JsonStorage
 
 
 class TestJsonStorage:

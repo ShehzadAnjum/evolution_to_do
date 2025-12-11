@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from console_app.models import Task
+from console_app_v2.models import Task
 
 
 class TestTaskCreation:
