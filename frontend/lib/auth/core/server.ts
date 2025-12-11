@@ -32,7 +32,8 @@ const authConfig: Parameters<typeof betterAuth>[0] = {
   // Trusted origins for CORS and preview deployments
   trustedOrigins: [
     env.BETTER_AUTH_URL,
-    "https://*.vercel.app", // Wildcard for Vercel preview URLs
+    "https://evolution-to-do.vercel.app",
+    "https://frontend-3wxhtu1pv-shehzadanjums-projects.vercel.app", // iteration-1 preview
   ].filter(Boolean) as string[],
   // Production OAuth configuration for Vercel
   // Note: Better Auth v1.4.5 handles cookie security automatically based on NODE_ENV
