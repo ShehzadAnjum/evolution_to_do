@@ -328,6 +328,140 @@ async def create_task(task):
 
 ---
 
+## Lessons Learned (Phase V)
+
+### 1. Kafka Deployment Methods
+
+| Method | Status | Notes |
+|--------|--------|-------|
+| Bitnami Helm | ❌ Failed | Paywall since Aug 2025 - images not found |
+| Redpanda | ❌ Failed | Too heavy for Minikube/constrained environments |
+| **Strimzi** | ✅ Works | Official K8s operator - recommended |
+
+**Always use Strimzi for Kubernetes Kafka deployments.**
+
+### 2. Strimzi Kafka Version Requirements
+
+```yaml
+# WRONG - causes UnsupportedKafkaVersionException
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+spec:
+  kafka:
+    version: 3.8.0  # ❌ Unsupported
+
+# CORRECT - use Kafka 4.x
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+spec:
+  kafka:
+    version: 4.0.0  # ✅ Required
+    metadataVersion: 4.0-IV0
+```
+
+### 3. Strimzi KRaft Mode (No ZooKeeper)
+
+Modern Kafka uses KRaft (Kafka Raft) - no ZooKeeper needed:
+
+```yaml
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: evolution-kafka
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled  # Enable KRaft mode
+spec:
+  kafka:
+    version: 4.0.0
+    metadataVersion: 4.0-IV0
+    # ... rest of config
+```
+
+### 4. Dapr CLI Installation
+
+```bash
+# WRONG - install.sh interprets flag as version number
+curl -fsSL https://raw.githubusercontent.com/dapr/cli/master/install/install.sh | /bin/bash -s -- --install-path ~/bin
+# Error: "Installing v--install-path Dapr CLI..."
+
+# CORRECT - use DAPR_INSTALL_DIR environment variable
+wget -q https://raw.githubusercontent.com/dapr/cli/master/install/install.sh -O - | DAPR_INSTALL_DIR=~/bin /bin/bash
+# Success: "dapr installed into /home/user/bin successfully"
+```
+
+### 5. GKE Autopilot Quota Issues
+
+New GCP accounts have low default quotas:
+- `CPUS_ALL_REGIONS`: typically 10 (need 24+ for Kafka)
+- Autopilot auto-scales but hits ceiling
+
+**Solution**: Request quota increase before creating cluster:
+- URL: https://console.cloud.google.com/iam-admin/quotas
+- Search: `CPUS_ALL_REGIONS`
+- Request: 24 CPUs
+- Approval: 2-24 hours typically
+
+### 6. Docker Credential Helper for gcloud
+
+If `docker push` fails after `gcloud auth configure-docker`:
+
+```bash
+# Create wrapper script to help Docker find gcloud
+cat > ~/bin/docker-credential-gcloud << 'EOF'
+#!/bin/bash
+exec /path/to/google-cloud-sdk/bin/docker-credential-gcloud "$@"
+EOF
+chmod +x ~/bin/docker-credential-gcloud
+
+# Then push with PATH including ~/bin
+export PATH="$HOME/bin:$PATH"
+docker push us-central1-docker.pkg.dev/project/repo/image:tag
+```
+
+### 7. Dapr Sidecar Verification
+
+Check that Dapr sidecar is injected (2/2 containers):
+
+```bash
+# Should show 2/2 READY (app + sidecar)
+kubectl get pods -n evolution-todo
+# NAME                              READY   STATUS
+# evolution-todo-backend-xxx        2/2     Running
+
+# Verify component loaded in sidecar logs
+kubectl logs -n evolution-todo -l app.kubernetes.io/component=backend -c daprd | grep "Component loaded"
+# msg="Component loaded: taskevents (pubsub.kafka/v1)"
+```
+
+### 8. Event Publishing Best Practice
+
+Always use background tasks, not blocking calls:
+
+```python
+from fastapi import BackgroundTasks
+
+@router.post("/tasks")
+async def create_task(
+    task: TaskCreate,
+    background_tasks: BackgroundTasks,  # ← Add this
+    user_id: str = Depends(get_current_user_id)
+):
+    db_task = await save_task(task, user_id)
+
+    # Non-blocking event publishing
+    background_tasks.add_task(
+        event_service.publish_task_created,
+        user_id=user_id,
+        task_id=str(db_task.id),
+        title=db_task.title
+    )
+
+    return db_task  # Returns immediately
+```
+
+---
+
 **Part of**: Evolution of Todo Reusable Intelligence
 **Phase**: V
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-11
