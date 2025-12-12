@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-12 (Night Session)
+**Last Updated**: 2025-12-12 (Late Night Session)
 **Updated By**: AI Assistant (Claude Code)
 **Current Phase**: Phase III - AI Chat Agent Enhancement
 **Current Branch**: main
-**Current Version**: 05.005.000
+**Current Version**: 05.006.000
 
 ---
 
@@ -23,37 +23,42 @@
 
 ### Last Session Summary
 - What accomplished:
-  - **AI Chat Agent Enhancements** (commits 41316ad → dd4b46d):
-    - Task list auto-refreshes after AI actions (add/update/delete/complete)
-    - Chat history preserved during task refresh (fixed unmount issue)
-    - Dynamic date injection - AI knows today's date for due_date defaults
-    - Title inference - AI extracts concise titles from natural language
-    - Time-without-date defaults to today ("meeting at 3pm" → today's date)
-  - **Smart Intent Detection**:
-    - Implicit ADD: "buy milk", "call mom" → adds task
-    - Implicit COMPLETE: "done with groceries", "finished report" → marks complete
-    - Implicit DELETE: "remove X", "don't need Y" → asks confirmation then deletes
-    - Context matching: "feeling sick" + task "air ticket" → asks about travel task
-  - **New Tool: clear_completed_tasks**:
-    - Bulk delete all completed tasks
-    - Triggered by "clean up list", "remove completed", "tidy up"
-  - **Safety Features**:
-    - Delete confirmation required (single and bulk)
-    - Warns if deleting incomplete task
-    - Strict scope - refuses off-topic prompts
-  - **Reusable Intelligence Updated**:
-    - `.claude/agents/ai-mcp.md` - Added Section 4.1: Advanced Intent Detection
-    - Documented three-layer intent detection pattern
-    - Added implicit intent keywords reference
+  - **Bilingual Support (English + Urdu)** (+100 pts bonus):
+    - Roman Urdu input → Urdu script (اردو) response
+    - Per-message language detection (not persistent)
+    - Cross-language task matching (doodh ↔ milk)
+    - RTL support for Urdu script in chat UI
+    - Font: Noto Nastaliq Urdu loaded and working
+  - **Smart Task Inference**:
+    - Task relationship groups (TRAVEL, HEALTH, WORK, SHOPPING, EVENTS)
+    - Situation-based suggestions ("feeling sick" → suggest defer travel tasks)
+    - Proactive suggestions, not passive task dumps
+  - **Intelligent Date Handling**:
+    - Urgent tasks (doctor) → TODAY
+    - Deferred tasks → current date + N days
+    - Unrelated tasks → unchanged
+    - Confirm before bulk date updates
+  - **Verification System**:
+    - Must check tool result success field
+    - Report ACTUAL values, not intended
+    - Never claim success if tool failed
+  - **Chatbot Behavior Architecture v2.0.0**:
+    - Complete rewrite of `.claude/subagents/chat-agent-behavior-tuner.md`
+    - 5-layer processing architecture with flow diagrams
+    - Three-tier intent detection (Explicit → Implicit → Contextual)
+    - Edge cases documented
+    - Quality metrics defined
+    - ADR 008: Chatbot Behavior Architecture created
+    - Archived old CHATBOT_FINETUNING.md
 - What learned:
-  - System prompts need dynamic date injection (AI doesn't know current date)
-  - Three-layer intent: explicit → implicit → contextual matching
-  - Loading state unmounts components - use separate states for initial vs refresh
-  - Chat panels need state preservation during parent re-renders
+  - System prompt rules at TOP have more impact
+  - Visual formatting (boxes, symbols) helps AI follow rules
+  - Balance needed: not too few rules (underfitting) vs too many (overfitting)
+  - Single source of truth for behavior spec prevents drift
 - What's next:
   1. Add voice input functionality (+200 pts bonus)
-  2. Add Urdu language support with Roman Urdu conversion (+100 pts bonus)
-  3. Test deployed AI chat features on production
+  2. Test bilingual features thoroughly
+  3. Fine-tune any remaining edge cases
 
 ---
 
@@ -141,13 +146,13 @@ git checkout main                   # Current work
 
 | Feature | Points | Status |
 |---------|--------|--------|
-| Reusable Intelligence | +200 | Partial (skills created) |
+| Reusable Intelligence | +200 | Partial (skills + behavior spec v2.0.0) |
 | Cloud-Native Blueprints | +200 | Pending |
-| Multi-language Support (Urdu) | +100 | In Progress (design done) |
+| Multi-language Support (Urdu) | +100 | **COMPLETE** (bilingual chat working) |
 | Voice Commands | +200 | In Progress (design done) |
 
 **Total Bonus Available**: +700
-**Total Earned (Estimated)**: ~100 (RI skills + design specs)
+**Total Earned (Estimated)**: ~200 (RI + Urdu support)
 
 ---
 

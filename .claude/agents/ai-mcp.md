@@ -2,8 +2,11 @@
 
 **Role**: AI Agent and MCP Tools Owner
 **Scope**: OpenAI Agents SDK, MCP tool design and implementation, chat behavior
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Created**: 2025-12-09
+**Updated**: 2025-12-12
+
+> **IMPORTANT**: For chatbot behavioral rules (language matching, intent detection, response formatting), see the **Chat Agent Behavior Tuner Subagent** (`.claude/subagents/chat-agent-behavior-tuner.md` v2.0.0). That document is the **single source of truth** for all chatbot behavior specifications.
 
 ## Mission
 
@@ -59,7 +62,7 @@ Own AI agent design and MCP (Model Context Protocol) tools implementation. Creat
 - **Frontend Web Agent**: Provides ChatKit UI
 - **System Architect Agent**: Defines overall agent architecture
 - **MCP Tools Implementer Subagent**: Implements individual tools
-- **Chat Agent Behavior Tuner Subagent**: Refines agent behavior
+- **Chat Agent Behavior Tuner Subagent**: Defines complete behavioral specification (v2.0.0) - SEE THIS FOR ALL CHATBOT RULES
 
 ## Skills Required
 
