@@ -25,6 +25,8 @@ import {
   requestNotificationPermission,
   scheduleAllTaskNotifications,
   testNotification,
+  setOnBellRing,
+  playBellSound,
 } from "@/lib/notifications";
 
 export default function TasksPage() {
@@ -49,6 +51,7 @@ export default function TasksPage() {
 
   // Notification state
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
+  const [bellRinging, setBellRinging] = useState(false);
 
   // Mobile sidebar toggle
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -83,6 +86,16 @@ export default function TasksPage() {
       scheduleAllTaskNotifications(tasks);
     }
   }, [tasks, notificationPermission]);
+
+  // Connect bell ring callback for visual animation
+  useEffect(() => {
+    setOnBellRing(() => {
+      setBellRinging(true);
+      // Stop vibration after animation completes
+      setTimeout(() => setBellRinging(false), 1000);
+    });
+    return () => setOnBellRing(null);
+  }, []);
 
   // Handle notification permission request
   const handleRequestNotificationPermission = async () => {
@@ -431,7 +444,7 @@ export default function TasksPage() {
               </span>
             </div>
 
-            {/* Notification Toggle */}
+            {/* Notification Toggle with Bell Animation */}
             {notificationPermission !== 'unsupported' && (
               <button
                 onClick={() => {
@@ -457,7 +470,14 @@ export default function TasksPage() {
                     : 'Enable task reminders'
                 }
               >
-                {notificationPermission === 'granted' ? '🔔' : notificationPermission === 'denied' ? '🔕' : '🔔'}
+                <span
+                  className={`inline-block text-lg ${bellRinging ? 'animate-bell-ring' : ''}`}
+                  style={{
+                    transformOrigin: 'top center',
+                  }}
+                >
+                  {notificationPermission === 'granted' ? '🔔' : notificationPermission === 'denied' ? '🔕' : '🔔'}
+                </span>
               </button>
             )}
 

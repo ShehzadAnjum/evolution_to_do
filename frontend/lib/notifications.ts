@@ -5,7 +5,67 @@
  * - Permission request for notifications
  * - Task due time notifications
  * - Background notification scheduling
+ * - Bell sound and visual vibration
  */
+
+// Bell vibration callback (set by UI component)
+let onBellRing: (() => void) | null = null;
+
+export function setOnBellRing(callback: (() => void) | null): void {
+  onBellRing = callback;
+}
+
+// Play bell sound using Web Audio API
+export function playBellSound(): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    // Create a bell-like sound with multiple harmonics
+    const playTone = (frequency: number, startTime: number, duration: number, volume: number) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = frequency;
+      oscillator.type = 'sine';
+
+      // Bell-like envelope: quick attack, slow decay
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime + startTime);
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + startTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + startTime + duration);
+
+      oscillator.start(audioContext.currentTime + startTime);
+      oscillator.stop(audioContext.currentTime + startTime + duration);
+    };
+
+    // Bell sound: fundamental + harmonics (two rings)
+    // First ring
+    playTone(800, 0, 0.5, 0.3);      // Fundamental
+    playTone(1200, 0, 0.4, 0.15);    // 2nd harmonic
+    playTone(1600, 0, 0.3, 0.1);     // 3rd harmonic
+
+    // Second ring (slightly delayed)
+    playTone(800, 0.3, 0.5, 0.25);
+    playTone(1200, 0.3, 0.4, 0.12);
+    playTone(1600, 0.3, 0.3, 0.08);
+
+    console.log('🔔 Bell sound played');
+  } catch (err) {
+    console.warn('Could not play bell sound:', err);
+  }
+}
+
+// Trigger bell ring (sound + visual)
+function triggerBellRing(): void {
+  playBellSound();
+  if (onBellRing) {
+    onBellRing();
+  }
+}
 
 // Check if notifications are supported
 export function isNotificationSupported(): boolean {
@@ -26,13 +86,16 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return permission;
 }
 
-// Show a notification
+// Show a notification with bell sound and visual
 export function showNotification(
   title: string,
   options?: NotificationOptions
 ): Notification | null {
   if (!isNotificationSupported()) return null;
   if (Notification.permission !== 'granted') return null;
+
+  // Trigger bell ring (sound + visual animation)
+  triggerBellRing();
 
   return new Notification(title, {
     icon: '/favicon.ico',
