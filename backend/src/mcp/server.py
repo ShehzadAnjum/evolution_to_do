@@ -98,7 +98,7 @@ def get_tool_definitions() -> list[dict[str, Any]]:
             "type": "function",
             "function": {
                 "name": "update_task",
-                "description": "Update an existing task's title or description",
+                "description": "Update an existing task's title, description, due date, priority, or category",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -117,6 +117,19 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                         "new_description": {
                             "type": "string",
                             "description": "New description for the task",
+                        },
+                        "new_due_date": {
+                            "type": "string",
+                            "description": "New due date in YYYY-MM-DD format",
+                        },
+                        "new_priority": {
+                            "type": "string",
+                            "description": "New priority: high, medium, or low",
+                            "enum": ["high", "medium", "low"],
+                        },
+                        "new_category": {
+                            "type": "string",
+                            "description": "New category for the task",
                         },
                     },
                 },

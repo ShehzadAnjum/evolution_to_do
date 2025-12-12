@@ -232,10 +232,11 @@ class ToolExecutor:
         }
 
     async def _update_task(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        """Update a task's title or description.
+        """Update a task's title, description, due date, priority, or category.
 
         Args:
-            arguments: {task_id?: str, title?: str, new_title?: str, new_description?: str}
+            arguments: {task_id?: str, title?: str, new_title?: str, new_description?: str,
+                       new_due_date?: str, new_priority?: str, new_category?: str}
 
         Returns:
             Updated task details
@@ -244,6 +245,9 @@ class ToolExecutor:
         title = arguments.get("title", "").strip()
         new_title = arguments.get("new_title")
         new_description = arguments.get("new_description")
+        new_due_date = arguments.get("new_due_date")
+        new_priority = arguments.get("new_priority")
+        new_category = arguments.get("new_category")
 
         # Find the task
         task = None
@@ -268,6 +272,10 @@ class ToolExecutor:
         if not task:
             return {"success": False, "error": "Task not found"}
 
+        # Track what changed for message
+        changes = []
+        old_due_date = str(task.due_date) if task.due_date else None
+
         # Update fields
         if new_title is not None:
             new_title = new_title.strip()
@@ -276,9 +284,29 @@ class ToolExecutor:
             if len(new_title) > 200:
                 return {"success": False, "error": "Title must be 200 characters or less"}
             task.title = new_title
+            changes.append("title")
 
         if new_description is not None:
             task.description = new_description.strip()
+            changes.append("description")
+
+        if new_due_date is not None:
+            try:
+                task.due_date = datetime.strptime(new_due_date, "%Y-%m-%d").date()
+                changes.append(f"due date ({old_due_date} → {new_due_date})")
+            except ValueError:
+                return {"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}
+
+        if new_priority is not None:
+            if new_priority.lower() in ["high", "medium", "low"]:
+                task.priority = new_priority.lower()
+                changes.append("priority")
+            else:
+                return {"success": False, "error": "Priority must be high, medium, or low"}
+
+        if new_category is not None:
+            task.category = new_category.lower().strip()
+            changes.append("category")
 
         task.updated_at = datetime.utcnow()
         self.db.add(task)
@@ -292,9 +320,12 @@ class ToolExecutor:
                 "title": task.title,
                 "description": task.description,
                 "is_complete": task.is_complete,
+                "priority": task.priority,
+                "category": task.category,
+                "due_date": str(task.due_date) if task.due_date else None,
                 "updated_at": task.updated_at.isoformat(),
             },
-            "message": f"Task '{task.title}' updated successfully",
+            "message": f"Task '{task.title}' updated: {', '.join(changes)}" if changes else f"Task '{task.title}' unchanged",
         }
 
     async def _delete_task(self, arguments: dict[str, Any]) -> dict[str, Any]:

@@ -99,6 +99,51 @@ User: "meeting postponed" / "meeting aagey hogayi"
 → Find related preparation tasks (presentation, report, documents)
 → Ask: "Should I update the due dates for related tasks like 'Prepare presentation'?"
 
+**INTELLIGENT DATE HANDLING FOR DEFERRALS:**
+When user defers tasks or a situation requires rescheduling:
+
+1. ANALYZE which tasks need date changes and which don't:
+   - URGENT/NEW tasks (like doctor when sick) → set to TODAY ({today})
+   - DEFERRED tasks → add N days to current due date
+   - UNRELATED tasks → keep original date
+
+2. When user says "defer by X days" or "X din baad":
+   - Only update dates for the AFFECTED tasks
+   - Calculate new date: current_due_date + X days
+
+3. Context-aware date decisions:
+
+   Scenario: User sick, defers travel by 7 days
+   - "Book doctor appointment" (NEW) → TODAY ({today}) - urgent health need
+   - "Purchase flight ticket" → current_date + 7 days
+   - "Buy suitcase" → current_date + 7 days
+   - "Book rental car" → current_date + 7 days
+   - "Submit weekly report" → UNCHANGED (unrelated to travel)
+
+   Scenario: Meeting postponed by 3 days
+   - "Prepare presentation" → current_date + 3 days
+   - "Print handouts" → current_date + 3 days
+   - "Buy groceries" → UNCHANGED (unrelated)
+
+4. When adding NEW tasks based on situation:
+   - Health emergency → due date TODAY
+   - Preparation for future event → due date = event date - 1 day
+   - Regular task → due date TODAY (default)
+
+5. Always CONFIRM before bulk date updates:
+   "I'll update these dates (defer by 7 days):
+   - Purchase ticket: Dec 15 → Dec 22
+   - Buy suitcase: Dec 14 → Dec 21
+   - Book car: Dec 16 → Dec 23
+
+   These will stay unchanged:
+   - Submit report: Dec 13 (not travel-related)
+
+   New task added:
+   - Doctor appointment: TODAY ({today})
+
+   Proceed with these changes?"
+
 **Roman Urdu Intent Detection:**
 ADD task indicators:
 - "karna hai", "karna he" (have to do)
