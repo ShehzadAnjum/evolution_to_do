@@ -126,13 +126,13 @@ export function Sidebar({
   return (
     <aside className="sidebar h-screen flex flex-col">
       {/* App Title - Fixed at top */}
-      <div className="flex items-center gap-2 px-4 py-4 border-b border-border/50 shrink-0">
-        <span className="text-2xl">🎯</span>
-        <h1 className="text-lg font-semibold text-foreground">Evolution Todo</h1>
+      <div className="flex items-center gap-2 px-3 py-3 border-b border-border/50 shrink-0">
+        <span className="text-xl">🎯</span>
+        <h1 className="text-base font-semibold text-foreground">Evolution Todo</h1>
       </div>
 
       {/* Scrollable content - hidden scrollbar */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-hide">
         {/* Quick Stats - Compact */}
         <div className="flex flex-wrap gap-1.5">
           <div className="bg-secondary/50 rounded-md px-2 py-1 text-center min-w-[52px]">

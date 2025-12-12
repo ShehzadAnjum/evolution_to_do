@@ -162,7 +162,7 @@
   @apply w-sidebar min-w-sidebar h-full bg-card border-r border-border;
 }
 .sidebar-item {
-  @apply flex items-center gap-3 px-4 py-2 rounded-lg cursor-pointer transition-colors;
+  @apply flex items-center gap-2 px-3 py-1 rounded-md cursor-pointer transition-colors text-sm;
   @apply hover:bg-secondary text-muted-foreground hover:text-foreground;
 }
 .sidebar-item.active {
