@@ -12,6 +12,25 @@
 let isRinging = false;
 let ringInterval: NodeJS.Timeout | null = null;
 let ringTimeout: NodeJS.Timeout | null = null;
+let sharedAudioContext: AudioContext | null = null;
+
+// Get or create shared AudioContext
+function getAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+
+  if (!sharedAudioContext) {
+    sharedAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    console.log('🔊 Created shared AudioContext');
+  }
+
+  // Resume if suspended
+  if (sharedAudioContext.state === 'suspended') {
+    sharedAudioContext.resume();
+    console.log('🔊 Resumed AudioContext');
+  }
+
+  return sharedAudioContext;
+}
 
 // Bell vibration callbacks (set by UI component)
 let onBellStart: (() => void) | null = null;
@@ -28,18 +47,11 @@ export function isBellRinging(): boolean {
 }
 
 // Play a single bell chime
-async function playBellChime(): Promise<void> {
-  if (typeof window === 'undefined') return;
+function playBellChime(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
 
   try {
-    // Create new AudioContext each time for reliability
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-
-    // Resume if suspended (browser autoplay policy)
-    if (ctx.state === 'suspended') {
-      await ctx.resume();
-    }
-
     const playTone = (frequency: number, startTime: number, duration: number, volume: number) => {
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
@@ -65,9 +77,6 @@ async function playBellChime(): Promise<void> {
     playTone(800, 0.3, 0.5, 0.25);
     playTone(1200, 0.3, 0.4, 0.12);
     playTone(1600, 0.3, 0.3, 0.08);
-
-    // Close context after sound finishes
-    setTimeout(() => ctx.close(), 1000);
 
     console.log('🔔 Chime played');
   } catch (err) {
