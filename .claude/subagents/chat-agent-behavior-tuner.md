@@ -91,32 +91,39 @@ This subagent defines the **complete behavioral specification** for the task man
 
 ### 3.1 Language Matching
 
-| User Input Type | Detection Method | Response Language |
-|-----------------|------------------|-------------------|
-| English | Latin chars, English words | English |
-| Roman Urdu | Latin chars + Urdu patterns | Urdu Script (اردو) |
-| Urdu Script | Unicode [\u0600-\u06FF] | Urdu Script (اردو) |
+**Implementation**: Backend-side language detection (v05.07.001+)
+
+The backend **detects language BEFORE sending to AI** and prepends an explicit instruction:
+
+| User Input Type | Detection Method | Instruction Prepended |
+|-----------------|------------------|----------------------|
+| English | Default (no Roman Urdu patterns) | `[USER LANGUAGE: English - YOU MUST RESPOND IN ENGLISH]` |
+| Roman Urdu | Regex patterns match | `[USER LANGUAGE: Roman Urdu - YOU MUST RESPOND IN URDU SCRIPT]` |
+| Urdu Script | Unicode [\u0600-\u06FF] | `[USER LANGUAGE: Urdu Script - YOU MUST RESPOND IN URDU SCRIPT]` |
+
+**Why Backend Detection?**
+- AI cannot reliably distinguish Roman Urdu from English (both use Latin chars)
+- Explicit instruction ensures correct language response
+- Detection happens per-message (ONLY last message)
+
+**Roman Urdu Detection Patterns** (in `chat_service.py`):
+```python
+ROMAN_URDU_PATTERNS = [
+    r'\b(hai|hain|hou|ho|hoon|hun)\b',           # is/are/am
+    r'\b(karo|karna|kar|kiya|ki)\b',             # do/doing
+    r'\b(hogaya|hogya|ho\s*gaya)\b',             # done
+    r'\b(haan|han|ji|nahi|nai)\b',               # yes/no
+    r'\b(mujhe|mujhay|tumhe|apko|aapko)\b',      # me/you
+    r'\b(bukhar|bimar|tabiyat)\b',               # fever/sick/health
+    r'\b(phadda|jhagra|larai)\b',                # fight
+    # ... 25+ patterns total
+]
+```
 
 **Rules**:
 - Evaluate ONLY the **IMMEDIATE LAST message** (ignore ALL previous conversation language)
 - NEVER respond in Roman Urdu
-- Match response to input language EXACTLY
-
-**Language Switch Examples**:
-- Previous messages in Urdu, current msg in English → Reply in **ENGLISH**
-- Previous messages in English, current msg "haan" → Reply in **اردو**
-- User switches mid-conversation? Follow the NEW language immediately.
-
-**Roman Urdu Patterns**:
-```
-karna hai, karna he    → have to do
-hogaya, hogya, ho gaya → done
-lena hai, leni hai     → need to get
-hatao, hata do         → remove
-dikhao, dikha do       → show
-khatam, khtm           → finished
-zaroorat nahi          → not needed
-```
+- Match response to instruction language EXACTLY
 
 ### 3.2 Task Awareness
 

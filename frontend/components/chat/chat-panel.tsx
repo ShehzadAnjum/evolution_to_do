@@ -190,6 +190,11 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
             placeholder="Ask me to manage your tasks..."
           />
         </div>
+
+        {/* Version number */}
+        <div className="absolute bottom-14 right-2 text-[10px] text-muted-foreground/50">
+          v05.07.001
+        </div>
       </div>
     </>
   );

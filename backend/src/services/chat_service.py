@@ -6,6 +6,7 @@ between users and the AI assistant, including tool execution.
 
 import json
 import logging
+import re
 import uuid
 from datetime import datetime
 from typing import Any
@@ -22,6 +23,74 @@ from src.services.openai_client import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Roman Urdu common words/patterns for detection
+ROMAN_URDU_PATTERNS = [
+    # Common words
+    r'\b(hai|hain|hou|ho|hoon|hun)\b',  # is/are/am
+    r'\b(karo|karna|karin|karein|kar|kiya|kiye|ki)\b',  # do/doing
+    r'\b(hogaya|hogya|ho\s*gaya|ho\s*gya|hogayi|hogyi)\b',  # done
+    r'\b(haan|han|ji|jee|nahi|nai|nahin)\b',  # yes/no
+    r'\b(dikhao|dikha|batao|bata|sunao|suna)\b',  # show/tell
+    r'\b(lena|leni|lelo|lelo|dena|deni|dedo)\b',  # take/give
+    r'\b(mujhe|mujhay|muje|tumhe|tumhay|tumhein|apko|aapko)\b',  # me/you
+    r'\b(kya|kyun|kab|kahan|kaise|kaun)\b',  # what/why/when/where/how/who
+    r'\b(acha|achchha|theek|thik|sahi)\b',  # ok/right
+    r'\b(abhi|kal|parso|aaj)\b',  # now/tomorrow/day after/today
+    r'\b(task|kaam|kam)\b',  # work
+    r'\b(zaroor|zaroorat|chahiye|chahie)\b',  # need
+    r'\b(delete|hatao|hata|nikalo|nikal)\b',  # remove
+    r'\b(add|daal|daalo|shamil)\b',  # add
+    r'\b(complete|mukammal|khatam|khtm)\b',  # complete
+    r'\b(list|fihrist|sab)\b',  # list/all
+    r'\b(update|badlo|badal)\b',  # update/change
+    # Common phrases
+    r'\b(meri|mera|mere|apni|apna|apne)\b',  # my/your
+    r'\b(wali|wala|wale)\b',  # related to
+    r'\b(safar|trip|travel)\b',  # travel
+    r'\b(bukhar|bimar|tabiyat|tabyat)\b',  # fever/sick/health
+    r'\b(ghar|office|daftar)\b',  # home/office
+    r'\b(phadda|jhagra|larai)\b',  # fight
+    r'\b(biwi|wife|husband|shohar)\b',  # spouse
+]
+
+
+def detect_language(text: str) -> str:
+    """Detect language of user message.
+
+    Returns:
+        'urdu_script' - if text contains Urdu Unicode characters
+        'roman_urdu' - if text contains Roman Urdu patterns
+        'english' - default
+    """
+    # Check for Urdu script (Unicode range 0600-06FF)
+    if re.search(r'[\u0600-\u06FF]', text):
+        return 'urdu_script'
+
+    # Check for Roman Urdu patterns
+    text_lower = text.lower()
+    roman_urdu_matches = 0
+    total_words = len(text_lower.split())
+
+    for pattern in ROMAN_URDU_PATTERNS:
+        if re.search(pattern, text_lower, re.IGNORECASE):
+            roman_urdu_matches += 1
+
+    # If significant Roman Urdu patterns found (at least 1 match, or 20%+ of words match patterns)
+    if roman_urdu_matches >= 1:
+        return 'roman_urdu'
+
+    return 'english'
+
+
+def get_language_instruction(language: str) -> str:
+    """Get language instruction to prepend to user message."""
+    if language == 'urdu_script':
+        return "[USER LANGUAGE: Urdu Script - YOU MUST RESPOND IN URDU SCRIPT (اردو میں جواب دیں)]\n\n"
+    elif language == 'roman_urdu':
+        return "[USER LANGUAGE: Roman Urdu - YOU MUST RESPOND IN URDU SCRIPT (اردو میں جواب دیں), NOT Roman Urdu, NOT English]\n\n"
+    else:
+        return "[USER LANGUAGE: English - YOU MUST RESPOND IN ENGLISH]\n\n"
 
 def get_system_prompt() -> str:
     """Generate system prompt with current date."""
@@ -620,9 +689,22 @@ class ChatService:
         )
         db_messages = self.db.exec(statement).all()
 
-        for msg in db_messages:
+        # Find the last user message to detect its language
+        last_user_msg_index = -1
+        for i, msg in enumerate(db_messages):
             if msg.role == "user":
-                messages.append({"role": "user", "content": msg.content})
+                last_user_msg_index = i
+
+        for i, msg in enumerate(db_messages):
+            if msg.role == "user":
+                content = msg.content
+                # For the LAST user message, prepend language instruction
+                if i == last_user_msg_index:
+                    detected_lang = detect_language(content)
+                    lang_instruction = get_language_instruction(detected_lang)
+                    content = lang_instruction + content
+                    logger.info(f"Detected language: {detected_lang} for message: {msg.content[:50]}...")
+                messages.append({"role": "user", "content": content})
             elif msg.role == "assistant":
                 msg_dict: dict[str, Any] = {"role": "assistant", "content": msg.content or ""}
                 if msg.tool_calls:
