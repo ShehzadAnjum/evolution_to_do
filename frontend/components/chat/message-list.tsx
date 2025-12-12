@@ -3,6 +3,21 @@
 import { useEffect, useRef } from "react";
 import type { ChatMessage, ToolResult } from "@/lib/chat/types";
 
+// Detect if text contains Urdu/Arabic script (needs RTL)
+function containsUrduScript(text: string): boolean {
+  // Unicode range for Arabic script (includes Urdu)
+  const urduRegex = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/;
+  return urduRegex.test(text);
+}
+
+// Get text direction and font class based on content
+function getTextStyles(text: string): { dir: "rtl" | "ltr"; className: string } {
+  if (containsUrduScript(text)) {
+    return { dir: "rtl", className: "font-urdu text-right" };
+  }
+  return { dir: "ltr", className: "" };
+}
+
 interface MessageListProps {
   messages: ChatMessage[];
   isLoading?: boolean;
@@ -21,13 +36,13 @@ export function MessageList({ messages, isLoading = false }: MessageListProps) {
       {messages.length === 0 ? (
         <div className="text-center text-muted-foreground py-8">
           <p className="text-lg font-medium">Welcome to Task Assistant!</p>
-          <p className="text-sm mt-2">
-            Try saying something like:
-          </p>
+          <p className="text-sm mt-2">English / اردو / Roman Urdu</p>
+          <p className="text-sm mt-3 font-medium">Try saying:</p>
           <ul className="text-sm mt-2 space-y-1">
             <li>&quot;Add a task to buy groceries&quot;</li>
-            <li>&quot;Show me my tasks&quot;</li>
-            <li>&quot;Mark the groceries task as complete&quot;</li>
+            <li>&quot;doodh lena hai&quot; <span className="opacity-60">(buy milk)</span></li>
+            <li>&quot;report hogayi&quot; <span className="opacity-60">(report done)</span></li>
+            <li>&quot;meri tasks dikhao&quot; <span className="opacity-60">(show my tasks)</span></li>
           </ul>
         </div>
       ) : (
@@ -56,6 +71,7 @@ export function MessageList({ messages, isLoading = false }: MessageListProps) {
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
+  const textStyles = getTextStyles(message.content || "");
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -66,7 +82,12 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             : "bg-muted text-foreground"
         }`}
       >
-        <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+        <p
+          className={`whitespace-pre-wrap text-sm ${textStyles.className}`}
+          dir={textStyles.dir}
+        >
+          {message.content}
+        </p>
 
         {/* Show tool calls if any */}
         {isAssistant && message.tool_calls && message.tool_calls.length > 0 && (
@@ -97,6 +118,7 @@ function formatToolName(name: string): string {
     delete_task: "Deleted task",
     complete_task: "Marked task complete",
     search_tasks: "Searched tasks",
+    clear_completed_tasks: "Cleared completed tasks",
   };
   return names[name] || name;
 }

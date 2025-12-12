@@ -79,6 +79,12 @@
   font-family: 'Noto Nastaliq Urdu', 'Gulzar', serif;
 }
 
+/* Urdu font utility class */
+.font-urdu {
+  font-family: 'Noto Nastaliq Urdu', 'Gulzar', serif;
+  line-height: 2;
+}
+
 /* v2.0.0: Priority badge styles */
 @layer components {
   .priority-badge {
