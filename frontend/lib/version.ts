@@ -21,7 +21,7 @@
 export const VERSION = {
   major: 5,
   feature: 8,
-  patch: 1,
+  patch: 2,
 } as const;
 
 // Computed version strings
@@ -34,7 +34,8 @@ export const APP_VERSION = VERSION_STRING;
 /**
  * Version History (recent):
  *
- * v05.08.001 - 2024-12-13 - Voice chat: FREE STT (Web Speech) + TTS (Edge TTS)
+ * v05.08.002 - 2025-12-13 - Voice fixes: Language detection, TTS cleanup, strict relevance
+ * v05.08.001 - 2025-12-13 - Voice chat: FREE STT (Web Speech) + TTS (Edge TTS)
  * v05.07.016 - 2024-12-12 - Smaller stats + added "3 Days" upcoming count
  * v05.07.015 - 2024-12-12 - Fixed Today count timezone + AI must use actual task ID/title
  * v05.07.014 - 2024-12-12 - Strict rule: NEVER dump all tasks, filter by relevance

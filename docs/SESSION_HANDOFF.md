@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-13 (Voice Chat Session)
+**Last Updated**: 2025-12-13 (Voice Chat Fixes Session)
 **Updated By**: AI Assistant (Claude Code)
 **Current Phase**: Phase III - AI Chat Agent Enhancement
 **Current Branch**: main
-**Current Version**: 05.08.001
+**Current Version**: 05.08.002
 
 ---
 
@@ -21,9 +21,22 @@
 - **Complete: AI Chat Agent v2.2** - Bilingual + Humor + Smart Filtering
 - **Deferred: Phase V Cloud** - GKE quota exceeded, pending increase
 
-### Last Session Summary (2025-12-13 Voice Chat)
+### Last Session Summary (2025-12-13 Voice Chat Fixes)
 - What accomplished:
-  - **Voice Chat Feature (v05.08.001)** - FREE, no API costs!
+  - **Voice Chat Fixes (v05.08.002)**:
+    - **Language Detection Fix**: Removed false positives from Roman Urdu patterns
+      - Words removed: `to`, `ya`, `he`, `ho`, `ki`, `na`, `g`, `din`, `wife`, `office`
+      - Now: Strong English (1+) with no Roman Urdu → English
+      - English speech now correctly stays in English
+    - **TTS Punctuation Fix**: Added `clean_text_for_tts()` function
+      - Strips: quotes (`"`, `'`), markdown (`**`, `*`), backticks, list markers
+      - TTS now sounds natural without reading punctuation
+    - **Task Relevance Fix**: Added "STRICT RELEVANCE" rule to system prompt
+      - Only suggest tasks with DIRECT logical connection
+      - "grocery shopping" → groceries, shopping, food (NOT "hang out with friends")
+      - Test: "Does this task have a LOGICAL connection?" - if NO, don't suggest
+
+- **Previous Session (Voice Chat Feature v05.08.001)** - FREE, no API costs!
     - **Speech-to-Text**: Web Speech API (browser native)
       - Supports English (en-US) and Urdu (ur-PK)
       - Language toggle in chat input area
@@ -83,11 +96,15 @@
 5. **SPECIFICITY AND HONESTY** - Never mention fictional tasks, exact details only
 6. **HUMOR WHERE APPROPRIATE** - Wife/spouse situations, light teasing with emojis
 
-### Language Detection Logic:
+### Language Detection Logic (v05.08.002):
 - **Strong English**: articles (the/a/an), be verbs (is/are/was), modals, contractions
 - **Weak English**: task, add, delete, priority, tomorrow (commonly borrowed)
-- **Roman Urdu**: kar/karo/hai/kal/mujhe/nahe etc.
-- Decision: Roman Urdu patterns found + no strong English → Roman Urdu
+- **Roman Urdu**: kar/karo/hai/kal/mujhe/nahe (NOT: to, ya, he, ho, ki, na, din, wife, office)
+- **Decision Priority**:
+  1. Strong English (1+) AND no Roman Urdu → English
+  2. Strong English (2+) → English (even with some Roman Urdu)
+  3. Roman Urdu (2+) AND no Strong English → Roman Urdu
+  4. Default → English
 
 ---
 
@@ -95,6 +112,7 @@
 
 | Version | Description |
 |---------|-------------|
+| 05.08.002 | Voice fixes: Language detection, TTS cleanup, strict relevance |
 | 05.08.001 | Voice chat: FREE STT (Web Speech) + TTS (Edge TTS) |
 | 05.07.016 | Smaller stats + "Next 3 Days" upcoming count |
 | 05.07.015 | Fixed Today count timezone + AI must use actual task ID/title |

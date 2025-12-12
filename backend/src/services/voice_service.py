@@ -27,6 +27,40 @@ ALTERNATIVE_VOICES = {
 }
 
 
+def clean_text_for_tts(text: str) -> str:
+    """
+    Clean text for TTS - remove punctuation that sounds awkward when spoken.
+
+    Removes: quotes, asterisks, markdown, excessive punctuation
+    Keeps: periods, commas, question marks (for natural pauses)
+    """
+    import re
+
+    # Remove markdown bold/italic markers
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)  # **bold** → bold
+    text = re.sub(r'\*([^*]+)\*', r'\1', text)      # *italic* → italic
+
+    # Remove quotes (they sound awkward)
+    text = text.replace('"', '')
+    text = text.replace("'", '')
+    text = text.replace('"', '')  # Smart quotes
+    text = text.replace('"', '')
+    text = text.replace(''', '')
+    text = text.replace(''', '')
+
+    # Remove backticks
+    text = text.replace('`', '')
+
+    # Remove bullet points and list markers
+    text = re.sub(r'^\s*[-•]\s*', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^\s*\d+\.\s*', '', text, flags=re.MULTILINE)
+
+    # Clean up multiple spaces
+    text = re.sub(r'\s+', ' ', text)
+
+    return text.strip()
+
+
 async def synthesize_speech(text: str, language: str = "english") -> bytes:
     """
     Convert text to speech using Edge TTS (FREE Microsoft Neural Voices).
@@ -41,6 +75,9 @@ async def synthesize_speech(text: str, language: str = "english") -> bytes:
     if not text or not text.strip():
         log.warning("Empty text provided for TTS")
         return b""
+
+    # Clean text for natural speech
+    text = clean_text_for_tts(text)
 
     # Select voice based on language
     voice = VOICES.get(language, VOICES["english"])

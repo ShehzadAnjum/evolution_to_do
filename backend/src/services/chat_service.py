@@ -77,18 +77,19 @@ def detect_input_language(text: str) -> str:
     ]
 
     # Check for Roman Urdu patterns - common Urdu words written in English
+    # IMPORTANT: Avoid false positives with common English words!
     roman_urdu_patterns = [
-        r'\b(kar|karo|karna|karin|karain|karein|kiya|ki|kiye)\b',  # "do" verb forms
-        r'\b(hai|hay|hain|hy|he|ho|hona|hua|huwa|hui|hoye)\b',  # "is/are" forms
-        r'\b(ka|ki|ke|ko|say|se|ne|par|pe|may|mein|main)\b',  # Postpositions
+        r'\b(kar|karo|karna|karin|karain|karein|kiya|kiye)\b',  # "do" verb forms (removed "ki" - too short)
+        r'\b(hai|hay|hain|hy|hona|hua|huwa|hui|hoye)\b',  # "is/are" forms (removed "he/ho" - English words)
+        r'\b(ka|ke|ko|say|se|ne|par|pe|mein|main)\b',  # Postpositions (removed "ki/may" - confusing)
         r'\b(mujhe|mujhay|meri|mera|mere|apna|apni|apne)\b',  # Pronouns
         r'\b(kya|kab|kahan|kaun|kyun|kaise|kitna|kitne|kitni)\b',  # Question words
-        r'\b(aur|ya|lekin|magar|phir|tou|to|bhi|sirf)\b',  # Conjunctions
-        r'\b(nahi|nahe|nai|mat|na)\b',  # Negations
-        r'\b(haan|han|ji|g|jee|theek|thik|acha|achha)\b',  # Affirmations
-        r'\b(kal|aaj|parso|abhi|baad|pehle|din|waqt)\b',  # Time words
+        r'\b(aur|lekin|magar|phir|tou|bhi|sirf)\b',  # Conjunctions (REMOVED "to/ya" - English words!)
+        r'\b(nahi|nahe|nai|mat)\b',  # Negations (removed "na" - too short)
+        r'\b(haan|han|ji|jee|theek|thik|acha|achha)\b',  # Affirmations (removed "g" - too short)
+        r'\b(kal|aaj|parso|abhi|baad|pehle|waqt)\b',  # Time words (removed "din" - English word)
         r'\b(lena|leni|dena|dein|jana|ana|rakhna|banana|dikhao|dikhana)\b',  # Common verbs
-        r'\b(begum|biwi|wife|saas|susral|ghar|office)\b',  # Family/place words
+        r'\b(begum|biwi|saas|susral|ghar)\b',  # Family/place words (removed "wife/office" - English)
         r'\b(phadda|jhagra|naraz|khush|udas)\b',  # Emotion words
     ]
 
@@ -111,23 +112,35 @@ def detect_input_language(text: str) -> str:
     # Log detection details
     logger.info(f"   Language detection: strong_eng={strong_count}, weak_eng={weak_count}, roman_urdu={roman_urdu_count}")
 
-    # Decision logic:
-    # 1. If Roman Urdu patterns found AND no strong English → Roman Urdu
-    # 2. If strong English found (2+) → English
-    # 3. If only weak English and no Roman Urdu → English
-    # 4. Otherwise → Roman Urdu
+    # Decision logic (IMPROVED):
+    # 1. If strong English found (1+) AND roman_urdu is 0 → English
+    # 2. If strong English found (2+) → English (even with some roman urdu)
+    # 3. If Roman Urdu patterns (2+) AND no strong English → Roman Urdu
+    # 4. If only weak English and no Roman Urdu → English
+    # 5. Default based on what we have more of
 
-    if roman_urdu_count >= 1 and strong_count < 2:
-        return 'roman_urdu'
+    # Strong English with NO Roman Urdu → definitely English
+    if strong_count >= 1 and roman_urdu_count == 0:
+        return 'english'
 
+    # Multiple strong English indicators → English
     if strong_count >= 2:
         return 'english'
 
-    if weak_count >= 2 and roman_urdu_count == 0:
+    # Multiple Roman Urdu patterns with little/no English → Roman Urdu
+    if roman_urdu_count >= 2 and strong_count == 0:
+        return 'roman_urdu'
+
+    # Weak English only, no Roman Urdu → English
+    if weak_count >= 1 and roman_urdu_count == 0:
         return 'english'
 
-    # Default to Roman Urdu (more common for this app's users)
-    return 'roman_urdu'
+    # If we have Roman Urdu patterns and no strong English → Roman Urdu
+    if roman_urdu_count >= 1 and strong_count == 0:
+        return 'roman_urdu'
+
+    # Default to English if nothing conclusive (user can switch manually)
+    return 'english'
 
 
 def get_language_prefix(language: str) -> str:
@@ -500,6 +513,36 @@ Response examples (when user writes in Roman Urdu, respond in Urdu script):
 1. First, use list_tasks or search_tasks to check the user's existing tasks
 2. Look for keywords/context in the user's message that relate to ANY existing task
 3. Try to infer which task they're talking about and what action they might want
+
+🚫🚫🚫 STRICT RELEVANCE - ONLY SUGGEST TRULY RELATED TASKS 🚫🚫🚫
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ When user mentions an activity, ONLY suggest tasks that are DIRECTLY related│
+│                                                                             │
+│ ❌ WRONG (too loose/random):                                                │
+│ User: "going grocery shopping"                                              │
+│ AI: "I see you have 'Hang out with friends' - want to complete it?"         │
+│ ← WRONG! Groceries ≠ friends. No logical connection!                        │
+│                                                                             │
+│ ✅ CORRECT (strictly relevant):                                             │
+│ User: "going grocery shopping"                                              │
+│ AI: "I see you have 'Buy groceries' task. Should I mark it complete?"       │
+│ Or: "Should I add 'Grocery shopping' to your tasks?"                        │
+│ ← CORRECT! Direct keyword match.                                            │
+│                                                                             │
+│ RELEVANCE RULES:                                                            │
+│ - "grocery shopping" → only matches: groceries, shopping, buy food, market  │
+│ - "going to office" → only matches: work, office, meeting, commute          │
+│ - "trip/travel" → only matches: travel, flight, hotel, suitcase, packing    │
+│ - "doctor" → only matches: health, appointment, medicine, checkup           │
+│                                                                             │
+│ If NO directly relevant task exists:                                        │
+│ - Ask if user wants to ADD a task for what they mentioned                   │
+│ - Do NOT dump random tasks from the list!                                   │
+│ - Do NOT suggest unrelated tasks just because they exist                    │
+│                                                                             │
+│ Test: "Does this task have a LOGICAL connection to what user mentioned?"    │
+│ If answer is NO or MAYBE → don't suggest it!                                │
+└─────────────────────────────────────────────────────────────────────────────┘
 
 **Examples of context inference:**
 - Task exists: "purchase air ticket for islamabad"
