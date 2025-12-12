@@ -11,7 +11,6 @@ import {
 } from "@/components/tasks";
 import { ChatPanel } from "@/components/chat";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { SignOutButton } from "@/app/dashboard/SignOutButton";
 import {
   Dialog,
   DialogContent,
@@ -225,7 +224,7 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="h-screen overflow-hidden flex">
+    <div className="h-full w-full overflow-hidden flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -234,10 +233,10 @@ export default function TasksPage() {
         />
       )}
 
-      {/* Sidebar - Fixed position, doesn't scroll with page */}
+      {/* Sidebar - Fixed on mobile, relative on desktop */}
       <aside
         className={`
-          fixed lg:relative inset-y-0 left-0 z-50 h-screen shrink-0
+          fixed lg:relative lg:inset-auto inset-y-0 left-0 z-40 h-full shrink-0
           transform transition-transform duration-300
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
@@ -253,11 +252,11 @@ export default function TasksPage() {
         />
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen min-w-0 bg-muted/50 dark:bg-[#0a0d12]">
-        {/* Header - Fixed, doesn't scroll */}
-        <header className="shrink-0 z-30 bg-card border-b border-border px-4 lg:px-6 h-14 flex items-center justify-between">
-          {/* Left: Menu button (mobile) + Title + Add Task */}
+      {/* Main Content Area - flex column with fixed header */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+        {/* Header - FIXED at top, never scrolls */}
+        <header className="flex-none h-14 z-30 bg-card border-b border-border px-4 lg:px-6 flex items-center justify-between">
+          {/* Left: Menu button (mobile) + Title */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -272,7 +271,11 @@ export default function TasksPage() {
               {activeCategory !== "all" && ` • ${activeCategory}`}
               {activePriority !== "all" && ` • ${activePriority} priority`}
             </h1>
-            {/* Add Task Button - next to title */}
+          </div>
+
+          {/* Right: Add Task, Search, Chat, Theme, Logout */}
+          <div className="flex items-center gap-2">
+            {/* Add Task Button */}
             <button
               onClick={() => {
                 setEditingTask(null);
@@ -284,10 +287,7 @@ export default function TasksPage() {
               <span className="text-base leading-none">+</span>
               <span className="hidden sm:inline">Add Task</span>
             </button>
-          </div>
 
-          {/* Right: Search, Chat, Theme, User */}
-          <div className="flex items-center gap-2">
             {/* Search */}
             <div className="hidden md:block relative">
               <input
@@ -312,12 +312,11 @@ export default function TasksPage() {
             </button>
 
             <ThemeToggle />
-            <SignOutButton />
           </div>
         </header>
 
-        {/* Content Area - Scrollable with visible scrollbar */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+        {/* Scrollable Content Area */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="max-w-3xl mx-auto space-y-4">
             {/* Success Message */}
             {successMessage && (
@@ -398,8 +397,8 @@ export default function TasksPage() {
               }}
             />
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
 
       {/* Add/Edit Task Dialog */}
       <Dialog

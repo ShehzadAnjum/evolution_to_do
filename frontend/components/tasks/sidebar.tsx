@@ -129,6 +129,14 @@ export function Sidebar({
               <span>{opt.label}</span>
             </button>
           ))}
+          {/* Add Category Button */}
+          <button
+            className="sidebar-item w-full text-primary hover:text-primary"
+            title="Add Category (coming soon)"
+          >
+            <span>➕</span>
+            <span>Add Category</span>
+          </button>
         </div>
 
         {/* Priority Filters */}
