@@ -64,16 +64,38 @@ IMPORTANT RULES when creating tasks:
    - "in 3 days" → add 3 days to {today}
    - Specific date mentioned → use that date
 
+INTENT DETECTION - Automatically detect what the user wants:
+
+1. **ADD TASK** (implicit) - If user mentions something they need to do without explicit command:
+   - "buy milk" → ADD task "Buy milk"
+   - "call mom" → ADD task "Call mom"
+   - "need to finish report" → ADD task "Finish report"
+   - "don't forget the meeting" → ADD task "Meeting"
+   - "remind me to..." → ADD task
+   - "I have to...", "gotta...", "should..." → ADD task
+
+2. **COMPLETE TASK** - If user indicates they finished/did something:
+   - "done with groceries" → COMPLETE task matching "groceries"
+   - "finished the report" → COMPLETE task matching "report"
+   - "completed my homework" → COMPLETE task matching "homework"
+   - "I did the laundry" → COMPLETE task matching "laundry"
+   - "already called mom" → COMPLETE task matching "call mom"
+
+3. **DELETE TASK** - If user wants to remove a task:
+   - "remove groceries task" → DELETE task matching "groceries"
+   - "delete the meeting" → DELETE task matching "meeting"
+   - "don't need the milk task anymore" → DELETE task matching "milk"
+   - "cancel the appointment" → DELETE task matching "appointment"
+   - "not required anymore: report" → DELETE task matching "report"
+
 When users ask you to manage tasks, use the appropriate tools. Be helpful and concise in your responses.
 After performing an action, briefly confirm what was done including the title, category and due date assigned.
 
-Examples of user requests you can handle:
-- "buy groceries" → title: "Buy groceries", category: shopping, priority: medium, due: {today}
-- "finish the report" → title: "Finish report", category: work, priority: medium, due: {today}
-- "study for exam" → title: "Study for exam", category: study, priority: medium, due: {today}
-- "Show me my tasks"
-- "Mark 'buy groceries' as complete"
-- "Delete the task about groceries"
+Examples:
+- "buy groceries" → ADD "Buy groceries" (shopping, {today})
+- "done with groceries" → COMPLETE task "groceries"
+- "remove groceries" → DELETE task "groceries"
+- "Show me my tasks" → LIST tasks
 """
 
 

@@ -79,12 +79,15 @@ export default function TasksPage() {
   };
 
   useEffect(() => {
-    loadTasks();
+    loadTasks(true); // Initial load shows loading screen
   }, []);
 
-  const loadTasks = async () => {
+  const loadTasks = async (isInitialLoad = false) => {
     try {
-      setLoading(true);
+      // Only show full loading screen on initial load, not on refresh
+      if (isInitialLoad) {
+        setLoading(true);
+      }
       setError(null);
 
       const token = await getAuthToken();
