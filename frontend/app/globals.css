@@ -178,20 +178,22 @@
   display: none;  /* Chrome, Safari and Opera */
 }
 
-/* Bell ring animation for notifications */
+/* Bell ring animation for notifications - loops continuously */
 @keyframes bellRing {
   0%, 100% { transform: rotate(0deg); }
-  10% { transform: rotate(14deg); }
-  20% { transform: rotate(-12deg); }
-  30% { transform: rotate(10deg); }
-  40% { transform: rotate(-8deg); }
-  50% { transform: rotate(6deg); }
-  60% { transform: rotate(-4deg); }
-  70% { transform: rotate(2deg); }
-  80% { transform: rotate(-1deg); }
-  90% { transform: rotate(0.5deg); }
+  5% { transform: rotate(20deg); }
+  10% { transform: rotate(-18deg); }
+  15% { transform: rotate(16deg); }
+  20% { transform: rotate(-14deg); }
+  25% { transform: rotate(12deg); }
+  30% { transform: rotate(-10deg); }
+  35% { transform: rotate(8deg); }
+  40% { transform: rotate(-6deg); }
+  45% { transform: rotate(4deg); }
+  50% { transform: rotate(0deg); }
+  /* Pause in the middle before next ring */
 }
 
 .animate-bell-ring {
-  animation: bellRing 1s ease-in-out;
+  animation: bellRing 0.8s ease-in-out infinite;
 }

@@ -24,9 +24,10 @@ import {
   getNotificationPermission,
   requestNotificationPermission,
   scheduleAllTaskNotifications,
-  testNotification,
   setOnBellRing,
-  playBellSound,
+  toggleBellRing,
+  stopBellRing,
+  isBellRinging,
 } from "@/lib/notifications";
 
 export default function TasksPage() {
@@ -87,14 +88,15 @@ export default function TasksPage() {
     }
   }, [tasks, notificationPermission]);
 
-  // Connect bell ring callback for visual animation
+  // Connect bell ring callbacks for visual animation
   useEffect(() => {
-    setOnBellRing(() => {
-      setBellRinging(true);
-      // Stop vibration after animation completes
-      setTimeout(() => setBellRinging(false), 1000);
-    });
-    return () => setOnBellRing(null);
+    setOnBellRing(
+      // Start callback
+      () => setBellRinging(true),
+      // Stop callback
+      () => setBellRinging(false)
+    );
+    return () => setOnBellRing(null, null);
   }, []);
 
   // Handle notification permission request
@@ -451,19 +453,23 @@ export default function TasksPage() {
                   if (notificationPermission !== 'granted') {
                     handleRequestNotificationPermission();
                   } else {
-                    // When already granted, clicking sends a test notification
-                    testNotification();
+                    // Toggle bell ringing (test or stop)
+                    toggleBellRing();
                   }
                 }}
                 className={`p-2 rounded-lg transition-colors ${
-                  notificationPermission === 'granted'
+                  bellRinging
+                    ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400'
+                    : notificationPermission === 'granted'
                     ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
                     : notificationPermission === 'denied'
                     ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                     : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
                 }`}
                 title={
-                  notificationPermission === 'granted'
+                  bellRinging
+                    ? 'Click to stop alarm'
+                    : notificationPermission === 'granted'
                     ? 'Click to test notification'
                     : notificationPermission === 'denied'
                     ? 'Notifications blocked (enable in browser settings)'

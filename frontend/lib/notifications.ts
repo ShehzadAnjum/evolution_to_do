@@ -5,66 +5,131 @@
  * - Permission request for notifications
  * - Task due time notifications
  * - Background notification scheduling
- * - Bell sound and visual vibration
+ * - Bell sound and visual vibration (continuous until stopped)
  */
 
-// Bell vibration callback (set by UI component)
-let onBellRing: (() => void) | null = null;
+// Bell ring state
+let isRinging = false;
+let ringInterval: NodeJS.Timeout | null = null;
+let ringTimeout: NodeJS.Timeout | null = null;
+let audioContext: AudioContext | null = null;
 
-export function setOnBellRing(callback: (() => void) | null): void {
-  onBellRing = callback;
+// Bell vibration callbacks (set by UI component)
+let onBellStart: (() => void) | null = null;
+let onBellStop: (() => void) | null = null;
+
+export function setOnBellRing(startCallback: (() => void) | null, stopCallback?: (() => void) | null): void {
+  onBellStart = startCallback;
+  onBellStop = stopCallback || null;
 }
 
-// Play bell sound using Web Audio API
-export function playBellSound(): void {
+// Check if bell is currently ringing
+export function isBellRinging(): boolean {
+  return isRinging;
+}
+
+// Play a single bell chime
+function playBellChime(): void {
   if (typeof window === 'undefined') return;
 
   try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
 
-    // Create a bell-like sound with multiple harmonics
     const playTone = (frequency: number, startTime: number, duration: number, volume: number) => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      const oscillator = audioContext!.createOscillator();
+      const gainNode = audioContext!.createGain();
 
       oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      gainNode.connect(audioContext!.destination);
 
       oscillator.frequency.value = frequency;
       oscillator.type = 'sine';
 
-      // Bell-like envelope: quick attack, slow decay
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime + startTime);
-      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + startTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + startTime + duration);
+      gainNode.gain.setValueAtTime(0, audioContext!.currentTime + startTime);
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext!.currentTime + startTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext!.currentTime + startTime + duration);
 
-      oscillator.start(audioContext.currentTime + startTime);
-      oscillator.stop(audioContext.currentTime + startTime + duration);
+      oscillator.start(audioContext!.currentTime + startTime);
+      oscillator.stop(audioContext!.currentTime + startTime + duration);
     };
 
     // Bell sound: fundamental + harmonics (two rings)
-    // First ring
-    playTone(800, 0, 0.5, 0.3);      // Fundamental
-    playTone(1200, 0, 0.4, 0.15);    // 2nd harmonic
-    playTone(1600, 0, 0.3, 0.1);     // 3rd harmonic
-
-    // Second ring (slightly delayed)
+    playTone(800, 0, 0.5, 0.3);
+    playTone(1200, 0, 0.4, 0.15);
+    playTone(1600, 0, 0.3, 0.1);
     playTone(800, 0.3, 0.5, 0.25);
     playTone(1200, 0.3, 0.4, 0.12);
     playTone(1600, 0.3, 0.3, 0.08);
-
-    console.log('🔔 Bell sound played');
   } catch (err) {
     console.warn('Could not play bell sound:', err);
   }
 }
 
-// Trigger bell ring (sound + visual)
-function triggerBellRing(): void {
-  playBellSound();
-  if (onBellRing) {
-    onBellRing();
+// Start continuous bell ringing (sound + visual) for up to 10 seconds
+export function startBellRing(): void {
+  if (isRinging) return;
+
+  isRinging = true;
+  console.log('🔔 Bell ringing started');
+
+  // Play first chime immediately
+  playBellChime();
+
+  // Start visual animation
+  if (onBellStart) {
+    onBellStart();
   }
+
+  // Repeat chime every 1.5 seconds
+  ringInterval = setInterval(() => {
+    if (isRinging) {
+      playBellChime();
+    }
+  }, 1500);
+
+  // Auto-stop after 10 seconds
+  ringTimeout = setTimeout(() => {
+    stopBellRing();
+  }, 10000);
+}
+
+// Stop bell ringing
+export function stopBellRing(): void {
+  if (!isRinging) return;
+
+  isRinging = false;
+  console.log('🔔 Bell ringing stopped');
+
+  if (ringInterval) {
+    clearInterval(ringInterval);
+    ringInterval = null;
+  }
+
+  if (ringTimeout) {
+    clearTimeout(ringTimeout);
+    ringTimeout = null;
+  }
+
+  // Stop visual animation
+  if (onBellStop) {
+    onBellStop();
+  }
+}
+
+// Toggle bell ring (for click handler)
+export function toggleBellRing(): void {
+  if (isRinging) {
+    stopBellRing();
+  } else {
+    startBellRing();
+  }
+}
+
+// Trigger bell ring (called when notification fires)
+function triggerBellRing(): void {
+  startBellRing();
 }
 
 // Check if notifications are supported
