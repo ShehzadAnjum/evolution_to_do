@@ -3,6 +3,14 @@
 Exports all models for easy importing.
 """
 
+from src.models.category import (
+    CategoryBase,
+    CategoryCreate,
+    CategoryDB,
+    CategoryRead,
+    MAX_CATEGORY_NAME_LENGTH,
+    MAX_ICON_LENGTH,
+)
 from src.models.conversation import (
     Conversation,
     ConversationBase,
@@ -37,6 +45,13 @@ __all__ = [
     "TaskRead",
     "MAX_TITLE_LENGTH",
     "MAX_DESCRIPTION_LENGTH",
+    # Category models (Phase II)
+    "CategoryBase",
+    "CategoryDB",
+    "CategoryCreate",
+    "CategoryRead",
+    "MAX_CATEGORY_NAME_LENGTH",
+    "MAX_ICON_LENGTH",
     # Conversation models (Phase III)
     "Conversation",
     "ConversationBase",

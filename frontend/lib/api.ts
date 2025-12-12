@@ -4,7 +4,7 @@
  * Provides typed functions for all backend API endpoints.
  */
 
-import type { Task, TaskCreate, TaskListResponse, TaskUpdate } from "./types";
+import type { Task, TaskCreate, TaskListResponse, TaskUpdate, Category, CategoryCreate } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -138,6 +138,47 @@ export async function toggleComplete(
     `/api/tasks/${taskId}/complete`,
     {
       method: "PATCH",
+    },
+    token
+  );
+}
+
+// ============================================================
+// Category API Functions
+// ============================================================
+
+/**
+ * Get all custom categories for the current user.
+ */
+export async function getCategories(token: string): Promise<Category[]> {
+  return fetchApi("/api/categories/", {}, token);
+}
+
+/**
+ * Create a new custom category.
+ */
+export async function createCategory(
+  token: string,
+  data: CategoryCreate
+): Promise<Category> {
+  return fetchApi(
+    "/api/categories/",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+}
+
+/**
+ * Delete a custom category.
+ */
+export async function deleteCategory(token: string, categoryId: string): Promise<void> {
+  return fetchApi(
+    `/api/categories/${categoryId}`,
+    {
+      method: "DELETE",
     },
     token
   );

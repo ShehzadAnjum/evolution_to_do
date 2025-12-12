@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getAuthToken } from "@/lib/auth-token";
-import type { Task, TaskCreate, TaskUpdate, TaskListResponse } from "@/lib/types";
+import type { Task, TaskCreate, TaskUpdate, Category, CategoryCreate } from "@/lib/types";
 import * as api from "@/lib/api";
 
 export default function TasksPage() {
@@ -43,6 +43,39 @@ export default function TasksPage() {
 
   // Task dialog toggle
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+
+  // Custom categories (persisted in database)
+  const [customCategories, setCustomCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // Load custom categories from API on mount
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      const token = await getAuthToken();
+      if (!token) return;
+      const categories = await api.getCategories(token);
+      setCustomCategories(categories);
+    } catch (err) {
+      console.error("Failed to load categories:", err);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  const handleAddCategory = async (data: CategoryCreate) => {
+    const token = await getAuthToken();
+    if (!token) {
+      setError("Please log in to add categories.");
+      return;
+    }
+    const newCategory = await api.createCategory(token, data);
+    setCustomCategories((prev) => [...prev, newCategory]);
+  };
 
   useEffect(() => {
     loadTasks();
@@ -248,6 +281,9 @@ export default function TasksPage() {
           onViewChange={(v) => { setActiveView(v); setSidebarOpen(false); }}
           onCategoryChange={(c) => { setActiveCategory(c); setSidebarOpen(false); }}
           onPriorityChange={(p) => { setActivePriority(p); setSidebarOpen(false); }}
+          customCategories={customCategories}
+          onAddCategory={handleAddCategory}
+          isLoadingCategories={loadingCategories}
         />
       </aside>
 
@@ -362,6 +398,21 @@ export default function TasksPage() {
                   }`}
                 >
                   {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </button>
+              ))}
+              {/* Custom Category Pills */}
+              {customCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.name.toLowerCase())}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1 ${
+                    activeCategory === cat.name.toLowerCase()
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card hover:bg-secondary text-muted-foreground border border-border"
+                  }`}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.name}</span>
                 </button>
               ))}
             </div>

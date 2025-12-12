@@ -9,6 +9,7 @@ from .config import get_settings
 # IMPORTANT: Import User BEFORE Task so foreign key can be resolved
 from ..models.user import User  # noqa: F401 - For FK resolution (must be first)
 from ..models.task import TaskDB  # noqa: F401
+from ..models.category import CategoryDB  # noqa: F401 - Custom categories
 from ..models.conversation import Conversation  # noqa: F401 - Phase III
 from ..models.message import Message  # noqa: F401 - Phase III
 

@@ -63,3 +63,17 @@ export interface ApiError {
   detail: string;
   status_code?: number;
 }
+
+// Custom category types
+export interface Category {
+  id: string;
+  user_id: string;
+  name: string;
+  icon: string;
+  created_at: string;
+}
+
+export interface CategoryCreate {
+  name: string;
+  icon?: string;
+}
