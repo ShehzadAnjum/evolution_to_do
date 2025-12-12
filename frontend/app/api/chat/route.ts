@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json();
 
-    // Forward request to backend
-    const response = await fetch(`${BACKEND_URL}/api/chat`, {
+    // Forward request to backend (trailing slash required by FastAPI)
+    const response = await fetch(`${BACKEND_URL}/api/chat/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
