@@ -4,7 +4,7 @@
  * Provides typed functions for all backend API endpoints.
  */
 
-import type { Task, TaskCreate, TaskListResponse, TaskUpdate, Category, CategoryCreate } from "./types";
+import type { Task, TaskCreate, TaskListResponse, TaskUpdate, Category, CategoryCreate, TaskFilterOptions } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -66,10 +66,25 @@ export async function checkHealth(): Promise<{ status: string; timestamp: string
 }
 
 /**
- * Get all tasks for the current user.
+ * Get all tasks for the current user with optional filters and sorting.
  */
-export async function getTasks(token: string): Promise<TaskListResponse> {
-  return fetchApi("/api/tasks/", {}, token);
+export async function getTasks(
+  token: string,
+  options?: TaskFilterOptions
+): Promise<TaskListResponse> {
+  // Build query string from options
+  const params = new URLSearchParams();
+  if (options?.search) params.set("search", options.search);
+  if (options?.category) params.set("category", options.category);
+  if (options?.priority) params.set("priority", options.priority);
+  if (options?.status) params.set("status", options.status);
+  if (options?.sort_by) params.set("sort_by", options.sort_by);
+  if (options?.sort_order) params.set("sort_order", options.sort_order);
+
+  const queryString = params.toString();
+  const endpoint = queryString ? `/api/tasks/?${queryString}` : "/api/tasks/";
+
+  return fetchApi(endpoint, {}, token);
 }
 
 /**

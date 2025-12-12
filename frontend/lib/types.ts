@@ -7,6 +7,9 @@
 // Priority levels
 export type Priority = 'high' | 'medium' | 'low';
 
+// Recurrence patterns
+export type RecurrencePattern = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+
 // Default categories (users can also use custom categories)
 export type DefaultCategory = 'general' | 'work' | 'personal' | 'study' | 'shopping';
 
@@ -23,6 +26,10 @@ export interface Task {
   priority: Priority;
   category: string;
   due_date: string | null;
+  // v3.0.0: Time picker support
+  due_time: string | null;
+  // v3.1.0: Recurring tasks
+  recurrence_pattern: RecurrencePattern;
 }
 
 export interface TaskCreate {
@@ -32,6 +39,10 @@ export interface TaskCreate {
   priority?: Priority;
   category?: string;
   due_date?: string;
+  // v3.0.0: Time picker
+  due_time?: string;
+  // v3.1.0: Recurring tasks
+  recurrence_pattern?: RecurrencePattern;
 }
 
 export interface TaskUpdate {
@@ -42,12 +53,31 @@ export interface TaskUpdate {
   priority?: Priority;
   category?: string;
   due_date?: string | null;
+  // v3.0.0: Time picker
+  due_time?: string | null;
+  // v3.1.0: Recurring tasks
+  recurrence_pattern?: RecurrencePattern;
 }
 
 export interface TaskListResponse {
   tasks: Task[];
   total: number;
   completed: number;
+  filtered_count?: number;
+}
+
+// Filter and sort options for task list
+export type TaskStatus = 'all' | 'complete' | 'incomplete';
+export type SortBy = 'created_at' | 'due_date' | 'priority' | 'title' | 'updated_at';
+export type SortOrder = 'asc' | 'desc';
+
+export interface TaskFilterOptions {
+  search?: string;
+  category?: string;
+  priority?: Priority;
+  status?: TaskStatus;
+  sort_by?: SortBy;
+  sort_order?: SortOrder;
 }
 
 // User types

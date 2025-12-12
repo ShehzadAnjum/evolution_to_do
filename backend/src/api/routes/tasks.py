@@ -1,7 +1,7 @@
 """Task CRUD endpoints."""
 
 import logging
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta, date
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlmodel import Session, select
@@ -13,6 +13,27 @@ from ...services.event_service import get_event_service
 logger = logging.getLogger(__name__)
 
 
+def calculate_next_due_date(current_date: date, pattern: str) -> date:
+    """Calculate the next due date based on recurrence pattern."""
+    if pattern == "daily":
+        return current_date + timedelta(days=1)
+    elif pattern == "weekly":
+        return current_date + timedelta(weeks=1)
+    elif pattern == "biweekly":
+        return current_date + timedelta(weeks=2)
+    elif pattern == "monthly":
+        # Add one month (handle month overflow)
+        year = current_date.year
+        month = current_date.month + 1
+        if month > 12:
+            month = 1
+            year += 1
+        # Handle day overflow (e.g., Jan 31 -> Feb 28)
+        day = min(current_date.day, 28)  # Safe default
+        return date(year, month, day)
+    return current_date
+
+
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 
@@ -20,23 +41,79 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 async def list_tasks(
     user_id: str = Depends(get_current_user_id),
     session: Session = Depends(get_session),
+    # Search & Filter parameters
+    search: str | None = None,
+    category: str | None = None,
+    priority: str | None = None,
+    status: str | None = None,  # "all", "complete", "incomplete"
+    # Sort parameters
+    sort_by: str = "created_at",  # "created_at", "due_date", "priority", "title"
+    sort_order: str = "desc",  # "asc", "desc"
 ):
-    """List all tasks for the authenticated user.
+    """List all tasks for the authenticated user with search, filter, and sort.
+
+    Query Parameters:
+    - search: Search text in title and description
+    - category: Filter by category (e.g., "work", "personal")
+    - priority: Filter by priority ("high", "medium", "low")
+    - status: Filter by completion ("all", "complete", "incomplete")
+    - sort_by: Sort field ("created_at", "due_date", "priority", "title")
+    - sort_order: Sort direction ("asc", "desc")
 
     Returns tasks with summary statistics.
     """
-    # Query tasks for this user, ordered by creation date (newest first)
-    statement = select(TaskDB).where(TaskDB.user_id == user_id).order_by(TaskDB.created_at.desc())
+    # Base query for user's tasks
+    statement = select(TaskDB).where(TaskDB.user_id == user_id)
+
+    # Apply search filter (case-insensitive search in title and description)
+    if search:
+        search_term = f"%{search.lower()}%"
+        statement = statement.where(
+            (TaskDB.title.ilike(search_term)) | (TaskDB.description.ilike(search_term))
+        )
+
+    # Apply category filter
+    if category:
+        statement = statement.where(TaskDB.category == category.lower())
+
+    # Apply priority filter
+    if priority:
+        statement = statement.where(TaskDB.priority == priority.lower())
+
+    # Apply status filter
+    if status == "complete":
+        statement = statement.where(TaskDB.is_complete == True)
+    elif status == "incomplete":
+        statement = statement.where(TaskDB.is_complete == False)
+    # "all" or None = no filter
+
+    # Apply sorting
+    sort_column = {
+        "created_at": TaskDB.created_at,
+        "due_date": TaskDB.due_date,
+        "priority": TaskDB.priority,
+        "title": TaskDB.title,
+        "updated_at": TaskDB.updated_at,
+    }.get(sort_by, TaskDB.created_at)
+
+    if sort_order == "asc":
+        statement = statement.order_by(sort_column.asc())
+    else:
+        statement = statement.order_by(sort_column.desc())
+
     tasks = session.exec(statement).all()
 
-    # Calculate statistics
-    total = len(tasks)
-    completed = sum(1 for task in tasks if task.is_complete)
+    # Calculate statistics (from all user's tasks, not filtered)
+    all_tasks_statement = select(TaskDB).where(TaskDB.user_id == user_id)
+    all_tasks = session.exec(all_tasks_statement).all()
+    total = len(all_tasks)
+    completed = sum(1 for task in all_tasks if task.is_complete)
 
     return {
         "tasks": [TaskRead.model_validate(task) for task in tasks],
         "total": total,
         "completed": completed,
+        "filtered_count": len(tasks),  # Count of filtered results
     }
 
 
@@ -67,7 +144,7 @@ async def create_task(
             detail="Title must be 200 characters or less",
         )
 
-    # Create task with v2.0.0 fields
+    # Create task with v2.0.0, v3.0.0, v3.1.0 fields
     task = TaskDB(
         title=task_data.title.strip(),
         description=task_data.description or "",
@@ -77,6 +154,10 @@ async def create_task(
         priority=task_data.priority or "medium",
         category=task_data.category or "general",
         due_date=task_data.due_date,
+        # v3.0.0: Time picker support
+        due_time=task_data.due_time,
+        # v3.1.0: Recurring tasks
+        recurrence_pattern=task_data.recurrence_pattern or "none",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -282,6 +363,18 @@ async def toggle_task_completion(
     # Toggle completion status
     task.is_complete = not task.is_complete
     task.updated_at = datetime.now(UTC)
+
+    # v3.1.0: Auto-reschedule recurring tasks when completed
+    rescheduled = False
+    if task.is_complete and task.recurrence_pattern and task.recurrence_pattern != "none":
+        if task.due_date:
+            # Calculate next due date
+            next_due = calculate_next_due_date(task.due_date, task.recurrence_pattern)
+            # Mark task as incomplete and update due date
+            task.is_complete = False
+            task.due_date = next_due
+            rescheduled = True
+            logger.info(f"Recurring task rescheduled: {task.title} -> {next_due}")
 
     session.add(task)
     session.commit()

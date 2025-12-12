@@ -19,6 +19,12 @@ import {
 import { getAuthToken } from "@/lib/auth-token";
 import type { Task, TaskCreate, TaskUpdate, Category, CategoryCreate } from "@/lib/types";
 import * as api from "@/lib/api";
+import {
+  isNotificationSupported,
+  getNotificationPermission,
+  requestNotificationPermission,
+  scheduleAllTaskNotifications,
+} from "@/lib/notifications";
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -35,6 +41,13 @@ export default function TasksPage() {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
   const [activePriority, setActivePriority] = useState<PriorityFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sort state
+  const [sortBy, setSortBy] = useState<"created_at" | "due_date" | "priority" | "title">("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Notification state
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
 
   // Mobile sidebar toggle
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,6 +66,31 @@ export default function TasksPage() {
   useEffect(() => {
     loadCategories();
   }, []);
+
+  // Check notification permission on mount
+  useEffect(() => {
+    if (isNotificationSupported()) {
+      setNotificationPermission(getNotificationPermission());
+    } else {
+      setNotificationPermission('unsupported');
+    }
+  }, []);
+
+  // Schedule notifications when tasks change
+  useEffect(() => {
+    if (notificationPermission === 'granted' && tasks.length > 0) {
+      scheduleAllTaskNotifications(tasks);
+    }
+  }, [tasks, notificationPermission]);
+
+  // Handle notification permission request
+  const handleRequestNotificationPermission = async () => {
+    const permission = await requestNotificationPermission();
+    setNotificationPermission(permission);
+    if (permission === 'granted' && tasks.length > 0) {
+      scheduleAllTaskNotifications(tasks);
+    }
+  };
 
   const loadCategories = async () => {
     try {
@@ -174,8 +212,33 @@ export default function TasksPage() {
       );
     }
 
+    // Sort tasks
+    result.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case "title":
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case "due_date":
+          // Null dates go to the end
+          if (!a.due_date && !b.due_date) comparison = 0;
+          else if (!a.due_date) comparison = 1;
+          else if (!b.due_date) comparison = -1;
+          else comparison = a.due_date.localeCompare(b.due_date);
+          break;
+        case "priority":
+          const priorityOrder = { high: 0, medium: 1, low: 2 };
+          comparison = priorityOrder[a.priority] - priorityOrder[b.priority];
+          break;
+        case "created_at":
+        default:
+          comparison = a.created_at.localeCompare(b.created_at);
+      }
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+
     return result;
-  }, [tasks, activeView, activeCategory, activePriority, searchQuery]);
+  }, [tasks, activeView, activeCategory, activePriority, searchQuery, sortBy, sortOrder]);
 
   const handleCreateTask = async (taskData: TaskCreate) => {
     try {
@@ -367,6 +430,29 @@ export default function TasksPage() {
               </span>
             </div>
 
+            {/* Notification Toggle */}
+            {notificationPermission !== 'unsupported' && (
+              <button
+                onClick={notificationPermission !== 'granted' ? handleRequestNotificationPermission : undefined}
+                className={`p-2 rounded-lg transition-colors ${
+                  notificationPermission === 'granted'
+                    ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                    : notificationPermission === 'denied'
+                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                    : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+                }`}
+                title={
+                  notificationPermission === 'granted'
+                    ? 'Notifications enabled'
+                    : notificationPermission === 'denied'
+                    ? 'Notifications blocked (enable in browser settings)'
+                    : 'Enable task reminders'
+                }
+              >
+                {notificationPermission === 'granted' ? '🔔' : notificationPermission === 'denied' ? '🔕' : '🔔'}
+              </button>
+            )}
+
             {/* Chat Toggle */}
             <button
               onClick={() => setChatOpen(true)}
@@ -455,24 +541,48 @@ export default function TasksPage() {
               ))}
             </div>
 
-            {/* Task Count */}
+            {/* Task Count & Sort */}
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
                 Showing {filteredTasks.length} of {tasks.length} tasks
               </span>
-              {(activeView !== "all" || activeCategory !== "all" || activePriority !== "all" || searchQuery) && (
-                <button
-                  onClick={() => {
-                    setActiveView("all");
-                    setActiveCategory("all");
-                    setActivePriority("all");
-                    setSearchQuery("");
-                  }}
-                  className="text-primary hover:underline"
-                >
-                  Clear filters
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {/* Sort Dropdown */}
+                <div className="flex items-center gap-2">
+                  <span className="hidden sm:inline">Sort:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                    className="h-8 px-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="created_at">Date Created</option>
+                    <option value="due_date">Due Date</option>
+                    <option value="priority">Priority</option>
+                    <option value="title">Title (A-Z)</option>
+                  </select>
+                  <button
+                    onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                    className="h-8 w-8 flex items-center justify-center rounded-md border border-input bg-background hover:bg-secondary transition-colors"
+                    title={sortOrder === "asc" ? "Ascending" : "Descending"}
+                  >
+                    {sortOrder === "asc" ? "↑" : "↓"}
+                  </button>
+                </div>
+                {/* Clear Filters */}
+                {(activeView !== "all" || activeCategory !== "all" || activePriority !== "all" || searchQuery) && (
+                  <button
+                    onClick={() => {
+                      setActiveView("all");
+                      setActiveCategory("all");
+                      setActivePriority("all");
+                      setSearchQuery("");
+                    }}
+                    className="text-primary hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Task List */}

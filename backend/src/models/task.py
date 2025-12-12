@@ -77,10 +77,21 @@ class Task:
 # =============================================================================
 
 
+class RecurrencePattern(str, Enum):
+    """Recurring task patterns."""
+    NONE = "none"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    BIWEEKLY = "biweekly"
+    MONTHLY = "monthly"
+
+
 class TaskBase(SQLModel):
     """Base task fields shared by all task schemas.
 
     v2.0.0: Added priority, category, due_date (all optional with defaults)
+    v3.0.0: Added due_time for time picker support
+    v3.1.0: Added recurrence_pattern for recurring tasks
     """
 
     title: str = Field(min_length=1, max_length=MAX_TITLE_LENGTH)
@@ -100,6 +111,17 @@ class TaskBase(SQLModel):
     due_date: Optional[date] = Field(
         default=None,
         description="Optional due date for the task"
+    )
+    # v3.0.0: Time picker support
+    due_time: Optional[str] = Field(
+        default=None,
+        max_length=5,
+        description="Optional due time in HH:MM format (e.g., '14:30')"
+    )
+    # v3.1.0: Recurring tasks
+    recurrence_pattern: str = Field(
+        default="none",
+        description="Recurrence: none, daily, weekly, biweekly, monthly"
     )
 
 
@@ -127,6 +149,8 @@ class TaskCreate(SQLModel):
     """Schema for creating a task (request body).
 
     v2.0.0: Added optional priority, category, due_date
+    v3.0.0: Added due_time for time picker support
+    v3.1.0: Added recurrence_pattern for recurring tasks
     """
 
     title: str = Field(min_length=1, max_length=MAX_TITLE_LENGTH)
@@ -136,12 +160,18 @@ class TaskCreate(SQLModel):
     priority: str = Field(default="medium", description="high, medium, low")
     category: str = Field(default="general", max_length=MAX_CATEGORY_LENGTH)
     due_date: Optional[date] = Field(default=None)
+    # v3.0.0: Time picker
+    due_time: Optional[str] = Field(default=None, max_length=5, description="HH:MM format")
+    # v3.1.0: Recurring tasks
+    recurrence_pattern: str = Field(default="none", description="none, daily, weekly, biweekly, monthly")
 
 
 class TaskUpdate(SQLModel):
     """Schema for updating a task (partial update).
 
     v2.0.0: Added optional priority, category, due_date
+    v3.0.0: Added due_time for time picker support
+    v3.1.0: Added recurrence_pattern for recurring tasks
     """
 
     title: Optional[str] = Field(default=None, min_length=1, max_length=MAX_TITLE_LENGTH)
@@ -152,6 +182,10 @@ class TaskUpdate(SQLModel):
     priority: Optional[str] = Field(default=None, description="high, medium, low")
     category: Optional[str] = Field(default=None, max_length=MAX_CATEGORY_LENGTH)
     due_date: Optional[date] = Field(default=None)
+    # v3.0.0: Time picker
+    due_time: Optional[str] = Field(default=None, max_length=5, description="HH:MM format")
+    # v3.1.0: Recurring tasks
+    recurrence_pattern: Optional[str] = Field(default=None, description="none, daily, weekly, biweekly, monthly")
 
 
 class TaskRead(TaskBase):

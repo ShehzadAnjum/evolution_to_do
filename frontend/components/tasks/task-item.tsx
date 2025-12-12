@@ -82,8 +82,17 @@ function getCategoryIcon(category: string, customCategories: Category[] = []): s
   }
 }
 
+// Format time for display (12-hour format)
+function formatTime(time: string | null): string {
+  if (!time) return "";
+  const [hours, minutes] = time.split(":").map(Number);
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12;
+  return `${hour12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+}
+
 // Format due date and get status
-function formatDueDate(dueDate: string | null): { text: string; className: string } | null {
+function formatDueDate(dueDate: string | null, dueTime: string | null): { text: string; className: string } | null {
   if (!dueDate) return null;
 
   const today = new Date();
@@ -92,19 +101,20 @@ function formatDueDate(dueDate: string | null): { text: string; className: strin
   due.setHours(0, 0, 0, 0);
 
   const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const timeStr = dueTime ? ` @ ${formatTime(dueTime)}` : "";
 
   if (diffDays < 0) {
-    return { text: `Overdue (${Math.abs(diffDays)}d)`, className: "due-overdue" };
+    return { text: `Overdue (${Math.abs(diffDays)}d)${timeStr}`, className: "due-overdue" };
   } else if (diffDays === 0) {
-    return { text: "Today", className: "due-today" };
+    return { text: `Today${timeStr}`, className: "due-today" };
   } else if (diffDays === 1) {
-    return { text: "Tomorrow", className: "due-today" };
+    return { text: `Tomorrow${timeStr}`, className: "due-today" };
   } else if (diffDays <= 7) {
-    return { text: `${diffDays} days`, className: "due-upcoming" };
+    return { text: `${diffDays} days${timeStr}`, className: "due-upcoming" };
   } else {
     // Format as date
     return {
-      text: due.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      text: due.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + timeStr,
       className: "due-upcoming"
     };
   }
@@ -138,7 +148,7 @@ export function TaskItem({
     }
   };
 
-  const dueInfo = formatDueDate(task.due_date);
+  const dueInfo = formatDueDate(task.due_date, task.due_time);
 
   return (
     <div
@@ -189,7 +199,7 @@ export function TaskItem({
           </p>
         )}
 
-        {/* Meta row: Category + Due date */}
+        {/* Meta row: Category + Due date + Recurrence */}
         <div className="flex items-center gap-3 mt-2 flex-wrap">
           {/* Category badge */}
           <span className={getCategoryClass(task.category)}>
@@ -200,6 +210,13 @@ export function TaskItem({
           {dueInfo && !task.is_complete && (
             <span className={`text-xs ${dueInfo.className}`}>
               📅 {dueInfo.text}
+            </span>
+          )}
+
+          {/* Recurrence indicator */}
+          {task.recurrence_pattern && task.recurrence_pattern !== "none" && (
+            <span className="text-xs text-blue-600 dark:text-blue-400">
+              🔄 {task.recurrence_pattern}
             </span>
           )}
         </div>

@@ -35,6 +35,30 @@ def get_session():
         yield session
 
 
+def run_migrations():
+    """Run manual migrations for new columns (ALTER TABLE for existing tables)."""
+    from sqlalchemy import text
+
+    migrations = [
+        # v3.0.0: Add due_time column for time picker support
+        ("tasks", "due_time", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_time VARCHAR(5)"),
+        # v3.1.0: Add recurrence_pattern column for recurring tasks
+        ("tasks", "recurrence_pattern", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_pattern VARCHAR(10) DEFAULT 'none'"),
+    ]
+
+    with Session(engine) as session:
+        for table, column, sql in migrations:
+            try:
+                session.exec(text(sql))
+                session.commit()
+                print(f"✅ Migration: Added {column} to {table}")
+            except Exception as e:
+                if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                    print(f"⏭️  Migration: {column} already exists in {table}")
+                else:
+                    print(f"⚠️  Migration warning for {column}: {e}")
+
+
 def init_db():
     """Initialize database tables (create all tables).
 
@@ -44,6 +68,8 @@ def init_db():
     try:
         SQLModel.metadata.create_all(engine)
         print("✅ Database tables created successfully")
+        # Run manual migrations for new columns
+        run_migrations()
     except Exception as e:
         if "user" in str(e).lower() or "NoReferencedTableError" in str(type(e).__name__):
             print("⚠️  Warning: 'user' table not found.")
