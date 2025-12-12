@@ -208,6 +208,116 @@ User: "Delete the grocery task"
 → Ambiguous! Ask: "Which grocery task? I found: [list]"
 ```
 
+### 4.1 Advanced Intent Detection (Prompt vs Intent vs Action)
+
+**Three-Layer Intent Detection**:
+
+```
+LAYER 1: EXPLICIT INTENT
+User says exactly what they want:
+- "add a task" → ADD
+- "delete the task" → DELETE (with confirmation)
+- "mark as complete" → COMPLETE
+- "show my tasks" → LIST
+
+LAYER 2: IMPLICIT INTENT
+User implies an action without explicit command:
+- "buy milk" → ADD (inferred from action verb)
+- "call mom" → ADD (inferred from action verb)
+- "done with groceries" → COMPLETE (inferred from "done")
+- "finished the report" → COMPLETE (inferred from "finished")
+- "don't need X anymore" → DELETE (inferred from negation)
+
+LAYER 3: CONTEXTUAL INTENT
+User message relates to existing task content:
+- Task: "purchase air ticket for islamabad"
+- User: "feeling sick" / "weather is bad" / "trip cancelled"
+- Infer: User talking about travel task → ASK about delete/complete
+```
+
+**Intent Detection Priority**:
+1. Check for explicit task commands (add, delete, complete, list, etc.)
+2. Check for implicit action indicators (done, finished, need to, etc.)
+3. Match keywords against existing task content
+4. If no match → refuse with task-focused redirect
+
+**Smart Context Matching Algorithm**:
+```python
+# Pseudocode for context matching
+def detect_intent(user_message, existing_tasks):
+    # Layer 1: Explicit commands
+    if has_explicit_command(user_message):
+        return parse_explicit_intent(user_message)
+
+    # Layer 2: Implicit action words
+    if has_implicit_action(user_message):
+        return infer_implicit_intent(user_message)
+
+    # Layer 3: Context matching with tasks
+    for task in existing_tasks:
+        if keywords_match(user_message, task.title):
+            return ask_clarification(task, infer_action(user_message))
+
+    # No match - refuse politely
+    return refuse_off_topic()
+```
+
+**Implicit Intent Keywords**:
+```
+ADD indicators:
+- "buy", "call", "finish", "complete", "do", "make"
+- "need to", "have to", "should", "gotta", "must"
+- "remind me", "don't forget"
+
+COMPLETE indicators:
+- "done", "finished", "completed", "did"
+- "already", "just did"
+
+DELETE indicators:
+- "remove", "delete", "cancel", "don't need"
+- "not required", "nevermind"
+
+CONTEXT indicators (match to existing tasks):
+- Travel: "sick", "weather", "cancelled", "postponed"
+- Shopping: "store", "bought", "fridge full"
+- Meetings: "rescheduled", "cancelled", "moved"
+- Health: "better", "recovered", "fine now"
+```
+
+**Confirmation Before Destructive Actions**:
+```
+DELETE single task:
+1. Find the task first (get_task or search_tasks)
+2. Check completion status
+3. If NOT complete: "This task is not completed yet. Are you sure?"
+4. If complete: "Delete '[title]'?"
+5. Only delete after user confirms
+
+DELETE multiple (clean up):
+1. Count completed tasks first
+2. Ask: "You have X completed tasks. Delete them all?"
+3. Only clear after confirmation
+```
+
+**Strict Scope Enforcement**:
+```
+ALLOWED topics:
+- Task CRUD (add, list, update, delete, complete)
+- Task search
+- Task cleanup
+- Questions about existing tasks
+
+REFUSED topics:
+- General conversation
+- Jokes, stories, coding help
+- Math, trivia, explanations
+- Anything not task-related
+
+Refusal response:
+"I'm a task management assistant. I can help you add, complete,
+update, or delete tasks. What would you like to do with your tasks?"
+```
+
 ### 5. Error Handling Patterns
 
 **Tool Error → Agent Response**:

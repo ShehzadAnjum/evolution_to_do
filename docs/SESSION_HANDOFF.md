@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-12 (Evening Session)
+**Last Updated**: 2025-12-12 (Night Session)
 **Updated By**: AI Assistant (Claude Code)
-**Current Phase**: Phase II/III (2nd Iteration) - Custom Categories & UX Polish
+**Current Phase**: Phase III - AI Chat Agent Enhancement
 **Current Branch**: main
-**Current Version**: 05.004.000
+**Current Version**: 05.005.000
 
 ---
 
@@ -18,38 +18,42 @@
 - **Complete: Custom Categories** - Database-persistent user categories
 - **Complete: Phase IV** - Docker + Kubernetes + Helm (local Minikube)
 - **Complete: Phase V Local** - Kafka + Dapr on Minikube WORKING
+- **Complete: AI Chat Agent v2** - Smart intent detection, context matching
 - **Deferred: Phase V Cloud** - GKE quota exceeded, pending increase
 
 ### Last Session Summary
 - What accomplished:
-  - **Database-Persistent Custom Categories** (commit 2e0fbb7):
-    - Created `CategoryDB` SQLModel with id, name, icon, user_id
-    - Added REST API endpoints: GET/POST/DELETE `/api/categories/`
-    - Categories are user-specific and stored in Neon PostgreSQL
-    - Replaced localStorage with API calls in frontend
-  - **Custom Categories Integration**:
-    - TaskForm: Custom categories appear in dropdown with separator
-    - TaskItem: Custom category icons display correctly in task list
-    - TaskList: Passes customCategories to TaskItem components
-    - Sidebar & Pills: Custom categories shown with icons
-  - **UX Improvements**:
-    - Added saving overlay with animated hourglass (⏳) for all CRUD operations
-    - Default category pills now show icons consistently
-    - Fixed z-index (z-[100]) so overlay appears above Dialog modals
-  - **UI Fixes from Previous Session**:
-    - Sticky header that never scrolls
-    - Dark mode background fix (slate-950)
-    - Theme toggle in header
-    - Removed duplicate logout buttons
-    - AI Chat button prominence improved
+  - **AI Chat Agent Enhancements** (commits 41316ad → dd4b46d):
+    - Task list auto-refreshes after AI actions (add/update/delete/complete)
+    - Chat history preserved during task refresh (fixed unmount issue)
+    - Dynamic date injection - AI knows today's date for due_date defaults
+    - Title inference - AI extracts concise titles from natural language
+    - Time-without-date defaults to today ("meeting at 3pm" → today's date)
+  - **Smart Intent Detection**:
+    - Implicit ADD: "buy milk", "call mom" → adds task
+    - Implicit COMPLETE: "done with groceries", "finished report" → marks complete
+    - Implicit DELETE: "remove X", "don't need Y" → asks confirmation then deletes
+    - Context matching: "feeling sick" + task "air ticket" → asks about travel task
+  - **New Tool: clear_completed_tasks**:
+    - Bulk delete all completed tasks
+    - Triggered by "clean up list", "remove completed", "tidy up"
+  - **Safety Features**:
+    - Delete confirmation required (single and bulk)
+    - Warns if deleting incomplete task
+    - Strict scope - refuses off-topic prompts
+  - **Reusable Intelligence Updated**:
+    - `.claude/agents/ai-mcp.md` - Added Section 4.1: Advanced Intent Detection
+    - Documented three-layer intent detection pattern
+    - Added implicit intent keywords reference
 - What learned:
-  - Dialog components have high z-index; use z-[100]+ for overlays above them
-  - Custom category icons need to be passed through component hierarchy
-  - SQLModel tables auto-create on app startup via init_db()
+  - System prompts need dynamic date injection (AI doesn't know current date)
+  - Three-layer intent: explicit → implicit → contextual matching
+  - Loading state unmounts components - use separate states for initial vs refresh
+  - Chat panels need state preservation during parent re-renders
 - What's next:
   1. Add voice input functionality (+200 pts bonus)
   2. Add Urdu language support with Roman Urdu conversion (+100 pts bonus)
-  3. Test deployed application on Vercel
+  3. Test deployed AI chat features on production
 
 ---
 
