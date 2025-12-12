@@ -82,17 +82,17 @@ export function UserProfile() {
 
       {/* User Name/Email */}
       <div className="flex flex-col">
-        <span className="text-sm font-semibold text-gray-900">
+        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
           {user.name || user.email.split("@")[0]}
         </span>
-        <span className="text-xs text-gray-600">{user.email}</span>
+        <span className="text-xs text-gray-600 dark:text-gray-400">{user.email}</span>
       </div>
 
       {/* Logout Button */}
       <button
         onClick={handleLogout}
         disabled={isLoggingOut}
-        className="px-3 py-1 text-sm font-semibold text-red-700 hover:text-red-900 hover:bg-red-50 rounded border border-red-300 disabled:opacity-50"
+        className="px-3 py-1.5 text-sm font-semibold text-red-600 dark:text-red-400 hover:text-white hover:bg-red-600 dark:hover:bg-red-500 rounded-md border border-red-400 dark:border-red-500 disabled:opacity-50 transition-colors"
       >
         {isLoggingOut ? "Logging out..." : "Logout"}
       </button>

@@ -10,7 +10,6 @@ import {
   PriorityFilter,
 } from "@/components/tasks";
 import { ChatPanel } from "@/components/chat";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   Dialog,
   DialogContent,
@@ -305,13 +304,14 @@ export default function TasksPage() {
             {/* Chat Toggle */}
             <button
               onClick={() => setChatOpen(true)}
-              className="p-2 hover:bg-secondary rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg"
               title="Open AI Assistant"
             >
-              <span className="text-lg">🤖</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              <span className="hidden sm:inline text-sm font-medium">AI Chat</span>
             </button>
-
-            <ThemeToggle />
           </div>
         </header>
 
