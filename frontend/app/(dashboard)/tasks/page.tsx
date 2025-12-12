@@ -225,7 +225,7 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-secondary/30 dark:bg-background flex">
+    <div className="h-screen overflow-hidden flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -234,10 +234,10 @@ export default function TasksPage() {
         />
       )}
 
-      {/* Sidebar - Fixed with independent scroll */}
+      {/* Sidebar - Fixed position, doesn't scroll with page */}
       <aside
         className={`
-          fixed lg:relative inset-y-0 left-0 z-50 h-screen
+          fixed lg:relative inset-y-0 left-0 z-50 h-screen shrink-0
           transform transition-transform duration-300
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
@@ -253,52 +253,51 @@ export default function TasksPage() {
         />
       </aside>
 
-      {/* Main Content - Takes remaining width, has its own scroll */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Header - Fixed at top */}
-        <header className="sticky top-0 shrink-0 z-30 bg-card border-b border-border px-4 lg:px-8 h-16 flex items-center justify-between">
-          {/* Left: Menu button (mobile) + Title */}
-          <div className="flex items-center gap-4">
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col h-screen min-w-0 bg-muted/50 dark:bg-[#0a0d12]">
+        {/* Header - Fixed, doesn't scroll */}
+        <header className="shrink-0 z-30 bg-card border-b border-border px-4 lg:px-6 h-14 flex items-center justify-between">
+          {/* Left: Menu button (mobile) + Title + Add Task */}
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden p-2 hover:bg-secondary rounded-lg"
             >
               ☰
             </button>
-            <h1 className="text-xl font-semibold text-foreground">
+            <h1 className="text-lg font-semibold text-foreground whitespace-nowrap">
               {activeView === "all" ? "All Tasks" :
                activeView === "today" ? "Today" :
                activeView === "upcoming" ? "Upcoming" : "Completed"}
               {activeCategory !== "all" && ` • ${activeCategory}`}
               {activePriority !== "all" && ` • ${activePriority} priority`}
             </h1>
-          </div>
-
-          {/* Right: Add Task, Search, Chat, Theme, User */}
-          <div className="flex items-center gap-2">
-            {/* Add Task Button */}
+            {/* Add Task Button - next to title */}
             <button
               onClick={() => {
                 setEditingTask(null);
                 setTaskDialogOpen(true);
               }}
-              className="flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors font-medium text-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md transition-colors font-medium text-sm"
               title="Add New Task"
             >
-              <span className="text-lg leading-none">+</span>
+              <span className="text-base leading-none">+</span>
               <span className="hidden sm:inline">Add Task</span>
             </button>
+          </div>
 
+          {/* Right: Search, Chat, Theme, User */}
+          <div className="flex items-center gap-2">
             {/* Search */}
-            <div className="hidden sm:block relative">
+            <div className="hidden md:block relative">
               <input
                 type="text"
                 placeholder="Search tasks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-48 lg:w-64 h-9 px-3 pr-8 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-48 lg:w-56 h-8 px-3 pr-8 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                 🔍
               </span>
             </div>
@@ -317,9 +316,9 @@ export default function TasksPage() {
           </div>
         </header>
 
-        {/* Content Area - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
-          <div className="max-w-3xl mx-auto space-y-6">
+        {/* Content Area - Scrollable with visible scrollbar */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <div className="max-w-3xl mx-auto space-y-4">
             {/* Success Message */}
             {successMessage && (
               <div className="p-3 bg-success/10 border border-success/30 rounded-lg text-success font-medium">
@@ -341,14 +340,31 @@ export default function TasksPage() {
             )}
 
             {/* Mobile Search */}
-            <div className="sm:hidden">
+            <div className="md:hidden">
               <input
                 type="text"
                 placeholder="Search tasks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 px-4 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full h-10 px-4 rounded-lg border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap gap-2">
+              {(["all", "work", "personal", "study", "shopping", "general"] as const).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    activeCategory === cat
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card hover:bg-secondary text-muted-foreground border border-border"
+                  }`}
+                >
+                  {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </button>
+              ))}
             </div>
 
             {/* Task Count */}
