@@ -188,6 +188,17 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "clear_completed_tasks",
+                "description": "Delete all completed tasks to clean up the task list",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+        },
     ]
 
 

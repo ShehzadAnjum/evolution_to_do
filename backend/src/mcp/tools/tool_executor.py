@@ -47,6 +47,7 @@ class ToolExecutor:
             "delete_task": self._delete_task,
             "complete_task": self._complete_task,
             "search_tasks": self._search_tasks,
+            "clear_completed_tasks": self._clear_completed_tasks,
         }
 
         handler = tool_handlers.get(name)
@@ -435,4 +436,37 @@ class ToolExecutor:
             ],
             "total": len(matching_tasks),
             "message": f"Found {len(matching_tasks)} task(s) matching '{query}'",
+        }
+
+    async def _clear_completed_tasks(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Delete all completed tasks.
+
+        Args:
+            arguments: {} (no arguments needed)
+
+        Returns:
+            Deletion confirmation with count
+        """
+        statement = select(TaskDB).where(
+            TaskDB.user_id == self.user_id,
+            TaskDB.is_complete == True,
+        )
+        completed_tasks = self.db.exec(statement).all()
+
+        if not completed_tasks:
+            return {
+                "success": True,
+                "deleted_count": 0,
+                "message": "No completed tasks to clear",
+            }
+
+        count = len(completed_tasks)
+        for task in completed_tasks:
+            self.db.delete(task)
+        self.db.commit()
+
+        return {
+            "success": True,
+            "deleted_count": count,
+            "message": f"Cleared {count} completed task(s)",
         }

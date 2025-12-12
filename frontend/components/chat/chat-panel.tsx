@@ -76,7 +76,7 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
 
         // Refresh task list if any task-related tool was called
         if (data.tool_results && data.tool_results.length > 0 && onTasksChanged) {
-          const taskTools = ["add_task", "update_task", "delete_task", "complete_task"];
+          const taskTools = ["add_task", "update_task", "delete_task", "complete_task", "clear_completed_tasks"];
           const hasTaskChange = data.tool_results.some((tr) => taskTools.includes(tr.tool));
           if (hasTaskChange) {
             onTasksChanged();
