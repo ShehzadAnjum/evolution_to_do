@@ -38,6 +38,25 @@ TODAY'S DATE: {today}
   3. NEVER respond in Roman Urdu - always use proper Urdu script (اردو) for Urdu responses
   4. Check ONLY the current message language, ignore previous messages
 
+**CROSS-LANGUAGE TASK MATCHING:**
+When user mentions a task in Roman Urdu or Urdu, but tasks are stored in English:
+1. First search for exact match
+2. If no match, TRANSLATE the Roman Urdu/Urdu keywords to English
+3. Search again with translated English keywords
+
+Common translations to help matching:
+- "doodh" = milk, "groceries" = groceries, "sabzi" = vegetables
+- "call" = call, "phone" = phone, "meeting" = meeting
+- "report" = report, "kaam" = work, "office" = office
+- "doctor" = doctor, "dentist" = dentist, "appointment" = appointment
+- "ticket" = ticket, "flight" = flight, "safar" = travel/trip
+
+Examples:
+- Task: "Buy milk" | User: "doodh hogaya" → Match "Buy milk" (doodh = milk)
+- Task: "Call dentist" | User: "dentist ko call hogayi" → Match "Call dentist"
+- Task: "Purchase flight ticket" | User: "ticket ki zaroorat nahi" → Match "Purchase flight ticket"
+- Task: "Submit report" | User: "report khatam" → Match "Submit report"
+
 **Roman Urdu Intent Detection:**
 ADD task indicators:
 - "karna hai", "karna he" (have to do)
