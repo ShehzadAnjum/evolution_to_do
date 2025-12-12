@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-12 (Late Night Session)
+**Last Updated**: 2025-12-12 (Continued Session)
 **Updated By**: AI Assistant (Claude Code)
 **Current Phase**: Phase III - AI Chat Agent Enhancement
 **Current Branch**: main
-**Current Version**: 05.006.000
+**Current Version**: 05.007.000
 
 ---
 
@@ -18,47 +18,39 @@
 - **Complete: Custom Categories** - Database-persistent user categories
 - **Complete: Phase IV** - Docker + Kubernetes + Helm (local Minikube)
 - **Complete: Phase V Local** - Kafka + Dapr on Minikube WORKING
-- **Complete: AI Chat Agent v2** - Smart intent detection, context matching
+- **Complete: AI Chat Agent v2.1** - Enhanced situation analysis + chat history context
 - **Deferred: Phase V Cloud** - GKE quota exceeded, pending increase
 
 ### Last Session Summary
 - What accomplished:
-  - **Bilingual Support (English + Urdu)** (+100 pts bonus):
-    - Roman Urdu input → Urdu script (اردو) response
-    - Per-message language detection (not persistent)
-    - Cross-language task matching (doodh ↔ milk)
-    - RTL support for Urdu script in chat UI
-    - Font: Noto Nastaliq Urdu loaded and working
-  - **Smart Task Inference**:
-    - Task relationship groups (TRAVEL, HEALTH, WORK, SHOPPING, EVENTS)
-    - Situation-based suggestions ("feeling sick" → suggest defer travel tasks)
-    - Proactive suggestions, not passive task dumps
-  - **Intelligent Date Handling**:
-    - Urgent tasks (doctor) → TODAY
-    - Deferred tasks → current date + N days
-    - Unrelated tasks → unchanged
-    - Confirm before bulk date updates
-  - **Verification System**:
-    - Must check tool result success field
-    - Report ACTUAL values, not intended
-    - Never claim success if tool failed
-  - **Chatbot Behavior Architecture v2.0.0**:
-    - Complete rewrite of `.claude/subagents/chat-agent-behavior-tuner.md`
-    - 5-layer processing architecture with flow diagrams
-    - Three-tier intent detection (Explicit → Implicit → Contextual)
-    - Edge cases documented
-    - Quality metrics defined
-    - ADR 008: Chatbot Behavior Architecture created
-    - Archived old CHATBOT_FINETUNING.md
+  - **Chat Panel UI Fixes**:
+    - Fixed scrolling issue (`overflow-hidden` → `overflow-y-auto min-h-0`)
+    - Fixed TypeScript onClick handler type mismatch in retry button
+  - **RULE 4 - Specificity and Honesty** (new):
+    - Never mention fictional tasks - only actual tasks with exact details
+    - Report EXACTLY which task was affected and what changed
+    - For ADDING: suggest only ONE new task based on situation
+    - For EDIT/DELETE: evaluate ALL tasks, suggest changes for ALL affected
+    - Check TRAVEL, SHOPPING, WORK, EVENTS task groups
+    - ALWAYS consider full chat history for context
+  - **Cross-Language Task Finding Fix**:
+    - Always search BOTH English AND Urdu translations
+    - Bidirectional translation table prevents missed matches
+    - Fixes issue when user switches languages mid-conversation
+  - **Chat History Context**:
+    - AI now considers full conversation history
+    - Remembers previously discussed tasks
+    - Handles "yes"/"ok" responses by checking prior proposals
+    - Doesn't repeat questions already answered
 - What learned:
-  - System prompt rules at TOP have more impact
-  - Visual formatting (boxes, symbols) helps AI follow rules
-  - Balance needed: not too few rules (underfitting) vs too many (overfitting)
-  - Single source of truth for behavior spec prevents drift
+  - CSS `min-h-0` critical for flex child overflow
+  - TypeScript onClick handlers need wrapper functions for custom signatures
+  - Cross-language search requires bidirectional lookup
+  - Chat context continuity critical for natural conversation
 - What's next:
   1. Add voice input functionality (+200 pts bonus)
-  2. Test bilingual features thoroughly
-  3. Fine-tune any remaining edge cases
+  2. Test all chatbot rule improvements thoroughly
+  3. Verify cross-language task operations work seamlessly
 
 ---
 
