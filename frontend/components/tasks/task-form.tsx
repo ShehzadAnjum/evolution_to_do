@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Task, TaskCreate, Priority, DefaultCategory } from "@/lib/types";
+import type { Task, TaskCreate, Priority, Category } from "@/lib/types";
 
 interface TaskFormProps {
   onSubmit: (data: TaskCreate) => Promise<void>;
   initialData?: Task;
   onCancel?: () => void;
   isEdit?: boolean;
+  customCategories?: Category[];
 }
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
@@ -32,6 +33,7 @@ export function TaskForm({
   initialData,
   onCancel,
   isEdit = false,
+  customCategories = [],
 }: TaskFormProps) {
   const [title, setTitle] = useState(initialData?.title || "");
   const [description, setDescription] = useState(initialData?.description || "");
@@ -156,6 +158,14 @@ export function TaskForm({
             {CATEGORY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.icon} {opt.label}
+              </option>
+            ))}
+            {customCategories.length > 0 && (
+              <option disabled>──────────</option>
+            )}
+            {customCategories.map((cat) => (
+              <option key={cat.id} value={cat.name.toLowerCase()}>
+                {cat.icon} {cat.name}
               </option>
             ))}
           </select>

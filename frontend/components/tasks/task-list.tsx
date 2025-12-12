@@ -1,13 +1,14 @@
 "use client";
 
 import { TaskItem } from "./task-item";
-import type { Task } from "@/lib/types";
+import type { Task, Category } from "@/lib/types";
 
 interface TaskListProps {
   tasks: Task[];
   onToggleComplete: (taskId: string) => Promise<void>;
   onDelete: (taskId: string) => Promise<void>;
   onEdit: (task: Task) => void;
+  customCategories?: Category[];
 }
 
 export function TaskList({
@@ -15,6 +16,7 @@ export function TaskList({
   onToggleComplete,
   onDelete,
   onEdit,
+  customCategories = [],
 }: TaskListProps) {
   if (tasks.length === 0) {
     return (
@@ -37,6 +39,7 @@ export function TaskList({
           onToggleComplete={onToggleComplete}
           onDelete={onDelete}
           onEdit={onEdit}
+          customCategories={customCategories}
         />
       ))}
     </div>

@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-12
+**Last Updated**: 2025-12-12 (Evening Session)
 **Updated By**: AI Assistant (Claude Code)
-**Current Phase**: Phase II/III (2nd Iteration) - Frontend GUI v2.0.0 Complete
+**Current Phase**: Phase II/III (2nd Iteration) - Custom Categories & UX Polish
 **Current Branch**: main
-**Current Version**: 05.003.000
+**Current Version**: 05.004.000
 
 ---
 
@@ -15,31 +15,37 @@
 - **Complete: Phase I (2nd Iteration)** - Console App v1 (Basic) & v2 (Textual TUI)
 - **Complete: Phase II/III (1st Iteration) LOCKED** (tag: `v1.0.0-phase2-3-web`)
 - **Complete: Phase II/III (2nd Iteration)** - Backend v2.0.0 + Frontend GUI v2.0.0
+- **Complete: Custom Categories** - Database-persistent user categories
 - **Complete: Phase IV** - Docker + Kubernetes + Helm (local Minikube)
 - **Complete: Phase V Local** - Kafka + Dapr on Minikube WORKING
 - **Deferred: Phase V Cloud** - GKE quota exceeded, pending increase
 
 ### Last Session Summary
 - What accomplished:
-  - **Frontend GUI v2.0.0 Complete** (commit c77c1f9):
-    - Added Sidebar component with view/category/priority filters
-    - Added ThemeToggle for dark/light mode switching
-    - Updated TaskForm with priority, category, due_date fields
-    - Updated TaskItem with priority badges and due date display
-    - GitHub-inspired dark theme (#0D1117 base)
-    - Google Fonts (Inter + Noto Nastaliq Urdu)
-    - Responsive sidebar with mobile overlay
-    - Search functionality and filter clearing
-    - Due date relative formatting (Today, Tomorrow, Overdue)
-  - **Reusable Intelligence Updated**:
-    - Updated `.claude/skills/neon-sqlmodel.md` with migration patterns
-    - Created ADR-006: Schema Evolution Strategy
-    - Created PHR-003: datetime.utcnow() Deprecation Fix
-  - **Build Verified**: Frontend build successful (6.97 kB tasks page)
+  - **Database-Persistent Custom Categories** (commit 2e0fbb7):
+    - Created `CategoryDB` SQLModel with id, name, icon, user_id
+    - Added REST API endpoints: GET/POST/DELETE `/api/categories/`
+    - Categories are user-specific and stored in Neon PostgreSQL
+    - Replaced localStorage with API calls in frontend
+  - **Custom Categories Integration**:
+    - TaskForm: Custom categories appear in dropdown with separator
+    - TaskItem: Custom category icons display correctly in task list
+    - TaskList: Passes customCategories to TaskItem components
+    - Sidebar & Pills: Custom categories shown with icons
+  - **UX Improvements**:
+    - Added saving overlay with animated hourglass (⏳) for all CRUD operations
+    - Default category pills now show icons consistently
+    - Fixed z-index (z-[100]) so overlay appears above Dialog modals
+  - **UI Fixes from Previous Session**:
+    - Sticky header that never scrolls
+    - Dark mode background fix (slate-950)
+    - Theme toggle in header
+    - Removed duplicate logout buttons
+    - AI Chat button prominence improved
 - What learned:
-  - Tailwind CSS variables work well with dark mode class toggling
-  - localStorage + inline script prevents dark mode flash on load
-  - useMemo is essential for efficient filter calculations
+  - Dialog components have high z-index; use z-[100]+ for overlays above them
+  - Custom category icons need to be passed through component hierarchy
+  - SQLModel tables auto-create on app startup via init_db()
 - What's next:
   1. Add voice input functionality (+200 pts bonus)
   2. Add Urdu language support with Roman Urdu conversion (+100 pts bonus)
@@ -145,6 +151,8 @@ git checkout main                   # Current work
 
 | Version | Phase | Description |
 |---------|-------|-------------|
+| 05.004.000 | II/III (2nd) | Custom categories, saving overlay, UX polish |
+| 05.003.000 | II/III (2nd) | Frontend GUI v2.0.0, dark mode, filters |
 | 05.002.000 | II/III (2nd) | Backend v2.0.0 fields, design spec, frontend types |
 | 05.001.000 | I (2nd) | Phase I 2nd Iteration - Console v1 + v2 Complete |
 | 05.001.000 | V | Phase V Local Complete - Kafka + Dapr on Minikube |
@@ -154,30 +162,36 @@ git checkout main                   # Current work
 
 ---
 
-## Frontend GUI v2.0.0 (COMPLETE)
+## Frontend GUI v2.0.0 + Custom Categories (COMPLETE)
 
-**Commit**: c77c1f9
-**Status**: Pushed to main, deploying to Vercel
+**Latest Commit**: 2e0fbb7 + current session
+**Status**: Pushed to main, deployed to Vercel
 
-### Components Added/Updated:
-- `frontend/components/tasks/sidebar.tsx` - New filter sidebar
+### Backend Files Added:
+- `backend/src/models/category.py` - CategoryDB, CategoryCreate, CategoryRead models
+- `backend/src/api/routes/categories.py` - REST API endpoints for categories
+- `backend/src/api/database.py` - Added CategoryDB import for table creation
+
+### Frontend Components Updated:
+- `frontend/components/tasks/sidebar.tsx` - Add Category form, custom categories list
 - `frontend/components/ui/theme-toggle.tsx` - Dark/light mode toggle
-- `frontend/components/tasks/task-form.tsx` - Priority, category, due_date fields
-- `frontend/components/tasks/task-item.tsx` - Priority badges, due date display
-- `frontend/components/tasks/task-list.tsx` - Improved empty state
-- `frontend/app/(dashboard)/tasks/page.tsx` - Sidebar layout, filtering logic
-- `frontend/app/layout.tsx` - Dark mode initialization script
-- `frontend/app/globals.css` - GitHub dark theme, component styles
-- `frontend/tailwind.config.ts` - v2.0.0 color palette
+- `frontend/components/tasks/task-form.tsx` - Custom categories in dropdown
+- `frontend/components/tasks/task-item.tsx` - Custom category icons lookup
+- `frontend/components/tasks/task-list.tsx` - Pass customCategories to items
+- `frontend/app/(dashboard)/tasks/page.tsx` - Category API integration, saving overlay
+- `frontend/lib/api.ts` - Category API functions (getCategories, createCategory, deleteCategory)
+- `frontend/lib/types.ts` - Category and CategoryCreate types
 
 ### Features:
 - Filter by view: All, Today, Upcoming, Completed
-- Filter by category: Work, Personal, Study, Shopping, General
+- Filter by category: Work, Personal, Study, Shopping, General + Custom
 - Filter by priority: High, Medium, Low
+- **Custom Categories**: Add categories with emoji icons, persisted in database
 - Search functionality
 - Dark/light mode with localStorage persistence
 - Mobile-responsive sidebar with overlay
 - Due date relative formatting (Today, Tomorrow, Overdue)
+- **Saving Overlay**: Animated hourglass during CRUD operations
 
 ---
 

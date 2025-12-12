@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { Task, Priority } from "@/lib/types";
+import type { Task, Priority, Category } from "@/lib/types";
 
 interface TaskItemProps {
   task: Task;
   onToggleComplete: (taskId: string) => Promise<void>;
   onDelete: (taskId: string) => Promise<void>;
   onEdit: (task: Task) => void;
+  customCategories?: Category[];
 }
 
 // Get priority badge class
@@ -56,8 +57,17 @@ function getCategoryClass(category: string): string {
   }
 }
 
-// Get category icon
-function getCategoryIcon(category: string): string {
+// Get category icon (checks custom categories first)
+function getCategoryIcon(category: string, customCategories: Category[] = []): string {
+  // Check custom categories first
+  const customCat = customCategories.find(
+    (c) => c.name.toLowerCase() === category.toLowerCase()
+  );
+  if (customCat) {
+    return customCat.icon;
+  }
+
+  // Default categories
   switch (category) {
     case "work":
       return "💼";
@@ -105,6 +115,7 @@ export function TaskItem({
   onToggleComplete,
   onDelete,
   onEdit,
+  customCategories = [],
 }: TaskItemProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -182,7 +193,7 @@ export function TaskItem({
         <div className="flex items-center gap-3 mt-2 flex-wrap">
           {/* Category badge */}
           <span className={getCategoryClass(task.category)}>
-            {getCategoryIcon(task.category)} {task.category}
+            {getCategoryIcon(task.category, customCategories)} {task.category}
           </span>
 
           {/* Due date */}

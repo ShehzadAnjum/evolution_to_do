@@ -25,6 +25,7 @@ export default function TasksPage() {
   const [total, setTotal] = useState(0);
   const [completed, setCompleted] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false); // For CRUD operations
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -173,6 +174,7 @@ export default function TasksPage() {
     try {
       setError(null);
       setSuccessMessage(null);
+      setSaving(true);
       const token = await getAuthToken();
       if (!token) {
         setError("Please log in to create tasks.");
@@ -185,6 +187,8 @@ export default function TasksPage() {
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       throw err;
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -193,6 +197,7 @@ export default function TasksPage() {
     try {
       setError(null);
       setSuccessMessage(null);
+      setSaving(true);
       const token = await getAuthToken();
       if (!token) {
         setError("Please log in to edit tasks.");
@@ -206,6 +211,8 @@ export default function TasksPage() {
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       throw err;
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -213,6 +220,7 @@ export default function TasksPage() {
     try {
       setError(null);
       setSuccessMessage(null);
+      setSaving(true);
       const token = await getAuthToken();
       if (!token) {
         setError("Please log in to delete tasks.");
@@ -225,12 +233,15 @@ export default function TasksPage() {
     } catch (err: any) {
       setError(err.message || "Failed to delete task");
       console.error("Error deleting task:", err);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleToggleComplete = async (taskId: string) => {
     try {
       setError(null);
+      setSaving(true);
       const token = await getAuthToken();
       if (!token) {
         setError("Please log in to update tasks.");
@@ -241,6 +252,8 @@ export default function TasksPage() {
     } catch (err: any) {
       setError(err.message || "Failed to update task status");
       console.error("Error toggling task completion:", err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -256,7 +269,17 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="h-full w-full overflow-hidden flex">
+    <div className="h-full w-full overflow-hidden flex relative">
+      {/* Saving overlay with hourglass - z-[100] to be above Dialog */}
+      {saving && (
+        <div className="fixed inset-0 bg-black/30 z-[100] flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-card rounded-lg p-6 shadow-lg text-center">
+            <div className="animate-spin text-4xl mb-3">⏳</div>
+            <p className="text-muted-foreground font-medium">Saving...</p>
+          </div>
+        </div>
+      )}
+
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -387,17 +410,25 @@ export default function TasksPage() {
 
             {/* Category Filter Pills */}
             <div className="flex flex-wrap gap-2">
-              {(["all", "work", "personal", "study", "shopping", "general"] as const).map((cat) => (
+              {([
+                { value: "all", label: "All", icon: "🏷️" },
+                { value: "work", label: "Work", icon: "💼" },
+                { value: "personal", label: "Personal", icon: "🏠" },
+                { value: "study", label: "Study", icon: "📚" },
+                { value: "shopping", label: "Shopping", icon: "🛒" },
+                { value: "general", label: "General", icon: "📋" },
+              ] as const).map((cat) => (
                 <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    activeCategory === cat
+                  key={cat.value}
+                  onClick={() => setActiveCategory(cat.value)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1 ${
+                    activeCategory === cat.value
                       ? "bg-primary text-primary-foreground"
                       : "bg-card hover:bg-secondary text-muted-foreground border border-border"
                   }`}
                 >
-                  {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  <span>{cat.icon}</span>
+                  <span>{cat.label}</span>
                 </button>
               ))}
               {/* Custom Category Pills */}
@@ -446,6 +477,7 @@ export default function TasksPage() {
                 setEditingTask(task);
                 setTaskDialogOpen(true);
               }}
+              customCategories={customCategories}
             />
           </div>
         </main>
@@ -473,6 +505,7 @@ export default function TasksPage() {
               setTaskDialogOpen(false);
               setEditingTask(null);
             }}
+            customCategories={customCategories}
           />
         </DialogContent>
       </Dialog>
