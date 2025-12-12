@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { MessageList } from "./message-list";
 import { MessageInput } from "./message-input";
 import { getAuthToken } from "@/lib/auth-token";
+import { speak, mapLanguageForTTS } from "@/lib/voice/api";
 import type { ChatMessage, ChatResponse } from "@/lib/chat/types";
 
 interface ChatPanelProps {
@@ -17,10 +18,18 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // Track if we should speak (to avoid speaking on page load)
+  const shouldSpeakRef = useRef(false);
 
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim()) return;
+
+      // Mark that we should speak the response
+      shouldSpeakRef.current = true;
 
       const userMessage: ChatMessage = {
         id: `temp-${Date.now()}`,
@@ -75,12 +84,20 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
           response_language: data.response_language,
         };
 
-        // Debug: Log full response data and message object
-        console.log("[ChatPanel] Full API response:", JSON.stringify(data, null, 2));
-        console.log("[ChatPanel] Assistant message object:", JSON.stringify(assistantMessage, null, 2));
-        console.log("[ChatPanel] input_language value:", assistantMessage.input_language);
-
         setMessages((prev) => [...prev, assistantMessage]);
+
+        // Auto-play TTS if enabled
+        if (voiceEnabled && shouldSpeakRef.current && data.message) {
+          const ttsLanguage = mapLanguageForTTS(data.response_language);
+          setIsSpeaking(true);
+          try {
+            await speak(data.message, ttsLanguage);
+          } catch (ttsError) {
+            console.warn("TTS playback failed:", ttsError);
+          } finally {
+            setIsSpeaking(false);
+          }
+        }
 
         // Refresh task list if any task-related tool was called
         if (data.tool_results && data.tool_results.length > 0 && onTasksChanged) {
@@ -104,13 +121,18 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
         setIsLoading(false);
       }
     },
-    [conversationId]
+    [conversationId, voiceEnabled, onTasksChanged]
   );
 
   const clearChat = () => {
     setMessages([]);
     setConversationId(undefined);
     setError(null);
+    shouldSpeakRef.current = false;
+  };
+
+  const toggleVoice = () => {
+    setVoiceEnabled((prev) => !prev);
   };
 
   return (
@@ -138,8 +160,23 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
           <div className="flex items-center gap-2">
             <span className="text-xl">🤖</span>
             <h2 className="font-semibold text-foreground">AI Assistant</h2>
+            {isSpeaking && (
+              <span className="text-xs text-green-500 animate-pulse">🔊</span>
+            )}
           </div>
           <div className="flex items-center gap-1">
+            {/* Voice toggle */}
+            <button
+              onClick={toggleVoice}
+              className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                voiceEnabled
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+              title={voiceEnabled ? "Voice enabled - click to mute" : "Voice muted - click to enable"}
+            >
+              {voiceEnabled ? "🔊" : "🔇"}
+            </button>
             <button
               onClick={clearChat}
               className="flex items-center gap-1 px-2 py-1 text-xs hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
@@ -186,18 +223,19 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
               <p className="text-xs mt-2 opacity-70">
                 Try: &quot;Add a task to buy groceries&quot; or &quot;Show my tasks for today&quot;
               </p>
+              <p className="text-xs mt-2 opacity-50">
+                🎤 Voice input supported | 🔊 Auto-play enabled
+              </p>
             </div>
           </div>
         )}
 
         {/* Input area */}
-        <div className="border-t border-border">
-          <MessageInput
-            onSend={sendMessage}
-            disabled={isLoading}
-            placeholder="Ask me to manage your tasks..."
-          />
-        </div>
+        <MessageInput
+          onSend={sendMessage}
+          disabled={isLoading}
+          placeholder="Ask me to manage your tasks..."
+        />
       </div>
     </>
   );

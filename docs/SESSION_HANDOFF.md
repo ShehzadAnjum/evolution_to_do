@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-12 (Night Session)
+**Last Updated**: 2025-12-13 (Voice Chat Session)
 **Updated By**: AI Assistant (Claude Code)
 **Current Phase**: Phase III - AI Chat Agent Enhancement
 **Current Branch**: main
-**Current Version**: 05.07.016
+**Current Version**: 05.08.001
 
 ---
 
@@ -21,55 +21,55 @@
 - **Complete: AI Chat Agent v2.2** - Bilingual + Humor + Smart Filtering
 - **Deferred: Phase V Cloud** - GKE quota exceeded, pending increase
 
-### Last Session Summary (2025-12-12 Night)
+### Last Session Summary (2025-12-13 Voice Chat)
 - What accomplished:
-  - **Bilingual Language Detection (v05.07.013)**:
-    - Smart detection: Strong English (articles, be verbs) vs Weak English (borrowed words)
-    - Roman Urdu patterns detection (kar, hai, kal, mujhe, etc.)
-    - Language indicator displayed between user message and AI reply (green text)
-    - Fixed backend ChatResponse to include `input_language` and `response_language`
+  - **Voice Chat Feature (v05.08.001)** - FREE, no API costs!
+    - **Speech-to-Text**: Web Speech API (browser native)
+      - Supports English (en-US) and Urdu (ur-PK)
+      - Language toggle in chat input area
+      - Real-time interim transcription display
+      - Auto-send on speech completion
+    - **Text-to-Speech**: Edge TTS (Microsoft Neural Voices)
+      - English: `en-US-JennyNeural` (female)
+      - Urdu: `ur-PK-UzmaNeural` (female)
+      - Auto-play AI responses when voice enabled
+      - Mute/unmute toggle in chat header
+    - **UI Enhancements**:
+      - 🎤 Mic button for voice input
+      - 🔊 Voice toggle button (green when enabled)
+      - Recording indicator with red pulse animation
+      - Speaking indicator when TTS playing
 
-  - **Enhanced Humor for Wife/Spouse Situations (v05.07.012)**:
-    - "begum se phadda" → couch sleeping jokes
-    - "wife ka birthday bhool gaya" → emergency mode with apology practice
-    - "wife ne kaha shopping" → wallet preparation jokes
-    - Gentle teasing, never mean-spirited
+  - **Backend Voice Service**:
+    - New `/api/voice/synthesize` endpoint
+    - Edge TTS integration (FREE Microsoft neural voices)
+    - Language-aware voice selection
 
-  - **Context-Aware Task Filtering (v05.07.014)**:
-    - NEVER dump all tasks - filter by relevance to situation
-    - "salary delayed" → only show purchasing/shopping tasks
-    - Specific defer suggestions with calculated new dates
-    - BAD/GOOD examples in system prompt
-
-  - **AI Must Use Actual Task ID/Title (v05.07.015)**:
-    - RULE 3: Use task ID or EXACT title from list_tasks JSON
-    - Never use translated/localized version of title
-    - Fixes deletion failures when searching by Urdu name
-
-  - **Today Count Timezone Fix (v05.07.015)**:
-    - Changed from `toISOString()` (UTC) to local date string
-    - Prevents wrong day calculation in different timezones
-
-  - **Sidebar Stats Redesign (v05.07.016)**:
-    - Smaller, compact stats with flex-wrap layout
-    - Added "Next 3 Days" upcoming count
-    - 5 stats: Total | Done | Today | Next 3 Days | Overdue
-    - Color coded: Default, Green, Blue, Orange, Red
-
-  - **Clear Chat Button**:
-    - Made more visible with "🗑️ Clear" label in chat header
+  - **Frontend Voice Components**:
+    - `use-speech-recognition.ts` hook (Web Speech API)
+    - `voice/api.ts` for TTS client
+    - Updated `message-input.tsx` with mic button
+    - Updated `chat-panel.tsx` with auto-play TTS
 
 - What learned:
-  - Pydantic models strip unknown fields - must add all fields to ChatResponse
-  - `toISOString()` converts to UTC causing timezone issues
-  - Strong vs Weak English word distinction critical for Roman Urdu detection
-  - AI needs explicit rules with BAD/GOOD examples to follow instructions
+  - Web Speech API is FREE and built into Chrome/Edge
+  - Edge TTS provides neural voices for FREE (no API key needed)
+  - TypeScript needs custom types for SpeechRecognition API
+  - Auto-play requires user interaction first (browser policy)
+
+- **Previous Session (2025-12-12 Night)**:
+  - Bilingual language detection (Strong vs Weak English)
+  - Enhanced humor for wife/spouse situations
+  - Context-aware task filtering
+  - AI must use actual task ID/title
+  - Today count timezone fix
+  - Sidebar stats redesign
 
 - **What's next (TO REVISIT)**:
-  1. Make chat more interesting and intelligent
-  2. Better task handling efficiency
-  3. Voice input functionality (+200 pts bonus)
-  4. More sophisticated situation analysis
+  1. Test voice in production (Vercel/Railway)
+  2. More sophisticated situation analysis
+  3. Voice command shortcuts
+  4. Better error handling for voice
 
 ---
 
@@ -95,6 +95,7 @@
 
 | Version | Description |
 |---------|-------------|
+| 05.08.001 | Voice chat: FREE STT (Web Speech) + TTS (Edge TTS) |
 | 05.07.016 | Smaller stats + "Next 3 Days" upcoming count |
 | 05.07.015 | Fixed Today count timezone + AI must use actual task ID/title |
 | 05.07.014 | Strict rule: NEVER dump all tasks, filter by relevance |
@@ -102,26 +103,26 @@
 | 05.07.012 | Enhanced humor for wife/spouse situations |
 | 05.07.011 | Moved language indicator between user msg and AI reply |
 | 05.07.010 | Fixed backend ChatResponse to include language fields |
-| 05.07.009 | Debug logging for language display in UI |
-| 05.07.008 | Simple English detection + explicit language prefix |
 
 ---
 
 ## Files Modified This Session
 
-### Backend:
-- `backend/src/api/main.py` - Added logging configuration
-- `backend/src/api/routes/chat.py` - Added input_language, response_language to ChatResponse
-- `backend/src/services/chat_service.py` - Enhanced language detection, humor rules, task filtering rules
+### Backend (NEW):
+- `backend/src/services/voice_service.py` - Edge TTS service (FREE neural voices)
+- `backend/src/api/routes/voice.py` - `/api/voice/synthesize` endpoint
+- `backend/src/api/main.py` - Registered voice router
+- `backend/pyproject.toml` - Added edge-tts dependency
 
-### Frontend:
-- `frontend/app/(dashboard)/tasks/page.tsx` - Fixed timezone in date comparison
-- `frontend/app/api/chat/route.ts` - Debug logging for proxy
-- `frontend/components/chat/chat-panel.tsx` - Clear button label, language data passing
-- `frontend/components/chat/message-list.tsx` - Language indicator display
-- `frontend/components/tasks/sidebar.tsx` - Compact stats, Next 3 Days count
-- `frontend/lib/chat/types.ts` - Added language fields to types
-- `frontend/lib/version.ts` - Version updates
+### Frontend (NEW):
+- `frontend/lib/voice/use-speech-recognition.ts` - Web Speech API hook
+- `frontend/lib/voice/api.ts` - TTS API client, speak() function
+- `frontend/app/api/voice/synthesize/route.ts` - Next.js proxy to backend
+
+### Frontend (MODIFIED):
+- `frontend/components/chat/message-input.tsx` - Mic button, voice language toggle
+- `frontend/components/chat/chat-panel.tsx` - Auto-play TTS, voice toggle button
+- `frontend/lib/version.ts` - v05.08.001
 
 ---
 

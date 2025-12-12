@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from .routes import health, tasks, chat, events, categories
+from .routes import health, tasks, chat, events, categories, voice
 from .database import init_db
 from .config import get_settings
 
@@ -75,6 +75,7 @@ app.include_router(tasks.router)
 app.include_router(categories.router)
 app.include_router(chat.router)
 app.include_router(events.router)
+app.include_router(voice.router)
 
 
 @app.get("/")
