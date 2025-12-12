@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -7,6 +8,12 @@ from contextlib import asynccontextmanager
 from .routes import health, tasks, chat, events, categories
 from .database import init_db
 from .config import get_settings
+
+# Configure logging to show INFO level (for debug logs in chat_service)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 
 @asynccontextmanager

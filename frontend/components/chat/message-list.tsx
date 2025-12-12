@@ -13,7 +13,9 @@ function containsUrduScript(text: string): boolean {
 // Get text direction and font class based on content
 function getTextStyles(text: string): { dir: "rtl" | "ltr"; className: string } {
   if (containsUrduScript(text)) {
-    return { dir: "rtl", className: "font-urdu text-right" };
+    // Larger font for Urdu - text-base (16px) instead of text-sm (14px)
+    // Also add leading-relaxed for better line spacing in Urdu script
+    return { dir: "rtl", className: "font-urdu text-right text-base leading-relaxed" };
   }
   return { dir: "ltr", className: "" };
 }
@@ -46,9 +48,24 @@ export function MessageList({ messages, isLoading = false }: MessageListProps) {
           </ul>
         </div>
       ) : (
-        messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))
+        messages.map((message, index) => {
+          // Find the next assistant message to get language info
+          const nextMessage = messages[index + 1];
+          const showLanguageAfterUser = message.role === "user" && nextMessage?.role === "assistant" && nextMessage.input_language;
+
+          return (
+            <div key={message.id}>
+              <MessageBubble message={message} />
+              {/* Show detected language after user message, before AI reply */}
+              {showLanguageAfterUser && (
+                <div className="text-xs text-green-600 dark:text-green-400 mt-1 mb-2 text-center">
+                  Detected: {nextMessage.input_language === "urdu_script" ? "Urdu Script" :
+                             nextMessage.input_language === "roman_urdu" ? "Roman Urdu" : "English"}
+                </div>
+              )}
+            </div>
+          );
+        })
       )}
 
       {isLoading && (
@@ -73,6 +90,16 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   const isAssistant = message.role === "assistant";
   const textStyles = getTextStyles(message.content || "");
 
+  // Debug: Log message props for assistant messages
+  if (isAssistant) {
+    console.log("[MessageBubble] Assistant message:", {
+      id: message.id,
+      input_language: message.input_language,
+      response_language: message.response_language,
+      hasInputLanguage: !!message.input_language,
+    });
+  }
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
@@ -83,11 +110,12 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         }`}
       >
         <p
-          className={`whitespace-pre-wrap text-sm ${textStyles.className}`}
+          className={`whitespace-pre-wrap ${textStyles.className || 'text-sm'}`}
           dir={textStyles.dir}
         >
           {message.content}
         </p>
+
 
         {/* Show tool calls if any */}
         {isAssistant && message.tool_calls && message.tool_calls.length > 0 && (

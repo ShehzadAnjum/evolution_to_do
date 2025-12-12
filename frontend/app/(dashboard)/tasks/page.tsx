@@ -130,8 +130,11 @@ export default function TasksPage() {
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    // Use local date string (YYYY-MM-DD) to avoid timezone issues
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
 
     // View filter
     switch (activeView) {
@@ -141,7 +144,8 @@ export default function TasksPage() {
       case "upcoming":
         result = result.filter(t => {
           if (!t.due_date || t.is_complete) return false;
-          return new Date(t.due_date) >= today;
+          // Compare dates as strings (YYYY-MM-DD format)
+          return t.due_date >= todayStr;
         });
         break;
       case "completed":

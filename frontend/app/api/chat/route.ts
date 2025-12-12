@@ -36,6 +36,11 @@ export async function POST(request: NextRequest) {
     // Parse response
     const data = await response.json();
 
+    // Debug: Log the full response from backend
+    console.log("[Chat Proxy] Backend response keys:", Object.keys(data));
+    console.log("[Chat Proxy] input_language:", data.input_language);
+    console.log("[Chat Proxy] response_language:", data.response_language);
+
     if (!response.ok) {
       return NextResponse.json(
         { success: false, message: data.detail || "Chat request failed" },

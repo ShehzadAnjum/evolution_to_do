@@ -1,28 +1,34 @@
 <!--
 ================================================================================
-SYNC IMPACT REPORT - Constitution v1.3.0 Reusable Intelligence Transparency
+SYNC IMPACT REPORT - Constitution v1.4.0 Version Tracking Mandatory
 ================================================================================
-Date: 2025-12-10
-Version: 1.2.1 → 1.3.0 (MINOR bump)
-Action: Add Principle IX requiring Claude to announce RI artifacts being used
+Date: 2025-12-12
+Version: 1.3.0 → 1.4.0 (MINOR bump)
+Action: Add Principle X requiring version increment with every code change
 
 VERSION CHANGES:
-- Previous Version: 1.2.1
-- Current Version: 1.3.0
+- Previous Version: 1.3.0
+- Current Version: 1.4.0
 - Version Bump Type: MINOR (new principle added)
 
 CHANGES MADE:
+1. Added Principle X: Version Tracking Is Mandatory
+2. Version format: mm.nn.ooo (major.feature.patch)
+3. Single source of truth: frontend/lib/version.ts
+4. Created version-guardian subagent
+5. Version displayed in UI header next to "Todo App"
+
+PREVIOUS CHANGES (v1.3.0):
 1. Added Principle IX: Reusable Intelligence Transparency
-2. Claude must announce which agents/subagents/skills are being used before tasks
-3. Claude must proactively suggest knowledge updates when discovering new patterns
-4. Claude must request permission before modifying any RI artifact
+2. Claude must announce which agents/subagents/skills are being used
+3. Claude must request permission before modifying any RI artifact
 
 PREVIOUS CHANGES (v1.2.1):
 1. Added Step 9: Capstone (Validation & Completion) to workflow
 2. Capstone step includes: validation against Spec, Plan, Constitution
 3. Aligns with SPECKIT_DOS_AND_DONTS.md workflow requirements
 
-PRINCIPLES (9 Non-Negotiable):
+PRINCIPLES (10 Non-Negotiable):
 1. Phase Boundaries Are HARD GATES
 2. Finish One Thing Before Starting Next
 3. Read Documentation First (30-Minute Rule)
@@ -32,6 +38,7 @@ PRINCIPLES (9 Non-Negotiable):
 7. Value-Driven Feature Development
 8. Quality Over Speed (But Achieve Both)
 9. Reusable Intelligence Transparency
+10. Version Tracking Is Mandatory
 
 SPECKIT WORKFLOW:
 Constitution → Spec → Clarify (optional) → Plan → Tasks → Implementation → Capstone
@@ -60,8 +67,8 @@ docs: amend constitution to v1.3.0 (add Principle IX - RI Transparency)
 # Evolution of Todo: Project Constitution
 
 **Created**: December 4, 2025
-**Version**: 1.3.0
-**Last Amended**: 2025-12-10
+**Version**: 1.4.0
+**Last Amended**: 2025-12-12
 **Project**: Hackathon II - The Evolution of Todo
 **Objective**: Master Spec-Driven Development & Cloud Native AI (1000 points target)
 
@@ -1431,6 +1438,45 @@ Skipping this checklist for better-auth cost 6-8 hours debugging.
 - Trigger formal updates via `/sp.*` commands when appropriate
 
 **Enforcement**: Claude will include artifact usage in task responses and prompt for updates when new knowledge emerges.
+
+---
+
+#### Principle X: Version Tracking Is Mandatory
+
+**Rule**: Every code change MUST increment the application version. Version is the single source of truth for deployment state.
+
+**Version Format**: `mm.nn.ooo`
+- `mm` = Major version (phase/iteration changes)
+- `nn` = Feature version (new features within phase)
+- `ooo` = Patch version (bug fixes, iterations on current feature)
+
+**Version File Location**: `frontend/lib/version.ts` (SINGLE SOURCE OF TRUTH)
+
+**When to Increment**:
+
+| Change Type | Action | Example |
+|-------------|--------|---------|
+| Bug fix | Increment `ooo` | 05.07.002 → 05.07.003 |
+| Small improvement | Increment `ooo` | 05.07.003 → 05.07.004 |
+| New feature | Increment `nn`, reset `ooo` to 001 | 05.07.004 → 05.08.001 |
+| Major/Phase change | Increment `mm`, reset `nn.ooo` | 05.08.001 → 06.01.001 |
+
+**Enforcement**:
+
+Before ANY commit:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  VERSION CHECK - MANDATORY BEFORE COMMIT                        │
+├─────────────────────────────────────────────────────────────────┤
+│  [ ] Code changed?                                              │
+│  [ ] Version incremented in frontend/lib/version.ts?            │
+│  [ ] Version history comment updated in file?                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**UI Display**: Version shown in header next to "Todo App" (small, dark yellow)
+
+**Related**: `.claude/subagents/version-guardian.md`
 
 ---
 

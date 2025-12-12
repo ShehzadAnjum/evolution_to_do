@@ -34,6 +34,12 @@ class ChatResponse(BaseModel):
     conversation_id: str
     message: str
     tool_results: Optional[list[dict]] = None
+    input_language: Optional[str] = Field(
+        default=None, description="Detected language of user input (english, roman_urdu, urdu_script)"
+    )
+    response_language: Optional[str] = Field(
+        default=None, description="Language of AI response (english, urdu_script)"
+    )
 
 
 @router.post("/", response_model=ChatResponse)

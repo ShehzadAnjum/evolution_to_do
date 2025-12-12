@@ -24,107 +24,145 @@ from src.services.openai_client import (
 
 logger = logging.getLogger(__name__)
 
-# Roman Urdu common words/patterns for detection
-ROMAN_URDU_PATTERNS = [
-    # Common words
-    r'\b(hai|hain|hou|ho|hoon|hun)\b',  # is/are/am
-    r'\b(karo|karna|karin|karein|kar|kiya|kiye|ki)\b',  # do/doing
-    r'\b(hogaya|hogya|ho\s*gaya|ho\s*gya|hogayi|hogyi)\b',  # done
-    r'\b(haan|han|ji|jee|nahi|nai|nahin)\b',  # yes/no
-    r'\b(dikhao|dikha|batao|bata|sunao|suna)\b',  # show/tell
-    r'\b(lena|leni|lelo|lelo|dena|deni|dedo)\b',  # take/give
-    r'\b(mujhe|mujhay|muje|tumhe|tumhay|tumhein|apko|aapko)\b',  # me/you
-    r'\b(kya|kyun|kab|kahan|kaise|kaun)\b',  # what/why/when/where/how/who
-    r'\b(acha|achchha|theek|thik|sahi)\b',  # ok/right
-    r'\b(abhi|kal|parso|aaj)\b',  # now/tomorrow/day after/today
-    r'\b(task|kaam|kam)\b',  # work
-    r'\b(zaroor|zaroorat|chahiye|chahie)\b',  # need
-    r'\b(delete|hatao|hata|nikalo|nikal)\b',  # remove
-    r'\b(add|daal|daalo|shamil)\b',  # add
-    r'\b(complete|mukammal|khatam|khtm)\b',  # complete
-    r'\b(list|fihrist|sab)\b',  # list/all
-    r'\b(update|badlo|badal)\b',  # update/change
-    # Common phrases
-    r'\b(meri|mera|mere|apni|apna|apne)\b',  # my/your
-    r'\b(wali|wala|wale)\b',  # related to
-    r'\b(safar|trip|travel)\b',  # travel
-    r'\b(bukhar|bimar|tabiyat|tabyat)\b',  # fever/sick/health
-    r'\b(ghar|office|daftar)\b',  # home/office
-    r'\b(phadda|jhagra|larai)\b',  # fight
-    r'\b(biwi|wife|husband|shohar)\b',  # spouse
-]
 
-
-def detect_language(text: str) -> str:
-    """Detect language of user message.
+def detect_response_language(text: str) -> str:
+    """Detect language of AI response (for logging only).
 
     Returns:
         'urdu_script' - if text contains Urdu Unicode characters
-        'roman_urdu' - if text contains Roman Urdu patterns
-        'english' - default
+        'english' - otherwise
+    """
+    if re.search(r'[\u0600-\u06FF]', text):
+        return 'urdu_script'
+    return 'english'
+
+
+def detect_input_language(text: str) -> str:
+    """Simple language detection for user input.
+
+    Returns:
+        'urdu_script' - if text contains Urdu Unicode characters
+        'english' - if text is mostly English words
+        'roman_urdu' - otherwise (Urdu written in English letters)
     """
     # Check for Urdu script (Unicode range 0600-06FF)
     if re.search(r'[\u0600-\u06FF]', text):
         return 'urdu_script'
 
-    # Check for Roman Urdu patterns
     text_lower = text.lower()
-    roman_urdu_matches = 0
-    total_words = len(text_lower.split())
 
-    for pattern in ROMAN_URDU_PATTERNS:
-        if re.search(pattern, text_lower, re.IGNORECASE):
-            roman_urdu_matches += 1
+    # STRONG English indicators - structural words that Roman Urdu speakers DON'T use
+    # These are articles, auxiliary verbs, and structural words
+    strong_english = [
+        r'\b(the|a|an)\b',  # Articles - never used in Roman Urdu
+        r'\b(is|are|was|were|been|being|am)\b',  # Be verbs
+        r'\b(have|has|had)\b',  # Have verbs (not "having" - could be borrowed)
+        r'\b(do|does|did)\b',  # Do verbs
+        r'\b(will|would|shall|should|could|might|must)\b',  # Modals
+        r'\b(i\'m|i\'ll|i\'ve|don\'t|doesn\'t|didn\'t|can\'t|won\'t|isn\'t|aren\'t)\b',  # Contractions
+        r'\b(this|that|these|those)\b',  # Demonstratives
+        r'\b(what|which|who|whom|whose|where|when|why|how)\b',  # Question words in sentences
+        r'\b(and|but|or|because|although|however)\b',  # Conjunctions
+        r'\b(very|really|just|also|only|even)\b',  # Adverbs
+    ]
 
-    # If significant Roman Urdu patterns found (at least 1 match, or 20%+ of words match patterns)
-    if roman_urdu_matches >= 1:
+    # WEAK English indicators - words commonly borrowed into Roman Urdu
+    # These alone don't indicate English
+    weak_english = [
+        r'\b(task|tasks|add|delete|remove|update|cancel|complete|done)\b',
+        r'\b(priority|high|medium|low|urgent)\b',
+        r'\b(tomorrow|today|week|month|year)\b',
+        r'\b(shopping|meeting|appointment|call|email)\b',
+        r'\b(please|thanks|ok|okay|yes|no|sure)\b',
+    ]
+
+    # Check for Roman Urdu patterns - common Urdu words written in English
+    roman_urdu_patterns = [
+        r'\b(kar|karo|karna|karin|karain|karein|kiya|ki|kiye)\b',  # "do" verb forms
+        r'\b(hai|hay|hain|hy|he|ho|hona|hua|huwa|hui|hoye)\b',  # "is/are" forms
+        r'\b(ka|ki|ke|ko|say|se|ne|par|pe|may|mein|main)\b',  # Postpositions
+        r'\b(mujhe|mujhay|meri|mera|mere|apna|apni|apne)\b',  # Pronouns
+        r'\b(kya|kab|kahan|kaun|kyun|kaise|kitna|kitne|kitni)\b',  # Question words
+        r'\b(aur|ya|lekin|magar|phir|tou|to|bhi|sirf)\b',  # Conjunctions
+        r'\b(nahi|nahe|nai|mat|na)\b',  # Negations
+        r'\b(haan|han|ji|g|jee|theek|thik|acha|achha)\b',  # Affirmations
+        r'\b(kal|aaj|parso|abhi|baad|pehle|din|waqt)\b',  # Time words
+        r'\b(lena|leni|dena|dein|jana|ana|rakhna|banana|dikhao|dikhana)\b',  # Common verbs
+        r'\b(begum|biwi|wife|saas|susral|ghar|office)\b',  # Family/place words
+        r'\b(phadda|jhagra|naraz|khush|udas)\b',  # Emotion words
+    ]
+
+    strong_count = 0
+    weak_count = 0
+    roman_urdu_count = 0
+
+    for pattern in strong_english:
+        if re.search(pattern, text_lower):
+            strong_count += 1
+
+    for pattern in weak_english:
+        if re.search(pattern, text_lower):
+            weak_count += 1
+
+    for pattern in roman_urdu_patterns:
+        if re.search(pattern, text_lower):
+            roman_urdu_count += 1
+
+    # Log detection details
+    logger.info(f"   Language detection: strong_eng={strong_count}, weak_eng={weak_count}, roman_urdu={roman_urdu_count}")
+
+    # Decision logic:
+    # 1. If Roman Urdu patterns found AND no strong English → Roman Urdu
+    # 2. If strong English found (2+) → English
+    # 3. If only weak English and no Roman Urdu → English
+    # 4. Otherwise → Roman Urdu
+
+    if roman_urdu_count >= 1 and strong_count < 2:
         return 'roman_urdu'
 
-    return 'english'
+    if strong_count >= 2:
+        return 'english'
+
+    if weak_count >= 2 and roman_urdu_count == 0:
+        return 'english'
+
+    # Default to Roman Urdu (more common for this app's users)
+    return 'roman_urdu'
 
 
-def get_language_instruction(language: str) -> str:
-    """Get language instruction to prepend to user message."""
-    if language == 'urdu_script':
-        return "[USER LANGUAGE: Urdu Script - YOU MUST RESPOND IN URDU SCRIPT (اردو میں جواب دیں)]\n\n"
+def get_language_prefix(language: str) -> str:
+    """Get prefix to prepend to user message for AI."""
+    if language == 'english':
+        return "[USER LANGUAGE: ENGLISH - You MUST respond in English]\n"
     elif language == 'roman_urdu':
-        return "[USER LANGUAGE: Roman Urdu - YOU MUST RESPOND IN URDU SCRIPT (اردو میں جواب دیں), NOT Roman Urdu, NOT English]\n\n"
-    else:
-        return "[USER LANGUAGE: English - YOU MUST RESPOND IN ENGLISH]\n\n"
+        return "[USER LANGUAGE: ROMAN URDU - You MUST respond in Urdu script (اردو)]\n"
+    else:  # urdu_script
+        return "[USER LANGUAGE: URDU SCRIPT - You MUST respond in Urdu script (اردو)]\n"
 
 def get_system_prompt() -> str:
     """Generate system prompt with current date."""
     today = datetime.utcnow().strftime("%Y-%m-%d")
     return f"""You are a bilingual task management assistant. TODAY: {today}
 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                    🚨 FIRST: CHECK USER'S LAST MESSAGE LANGUAGE 🚨             ║
-╠═══════════════════════════════════════════════════════════════════════════════╣
-║                                                                               ║
-║   BEFORE YOU WRITE ANYTHING, LOOK AT THE USER'S VERY LAST MESSAGE:           ║
-║                                                                               ║
-║   ┌─────────────────────────────────────────────────────────────────────┐    ║
-║   │  Last msg has ENGLISH words (update, show, yes, ok, delete, etc.)  │    ║
-║   │  ════════════════════════════════════════════════════════════════  │    ║
-║   │  → YOUR ENTIRE RESPONSE MUST BE IN ENGLISH                         │    ║
-║   └─────────────────────────────────────────────────────────────────────┘    ║
-║                                                                               ║
-║   ┌─────────────────────────────────────────────────────────────────────┐    ║
-║   │  Last msg has ROMAN URDU (haan, karo, dikhao, hogaya, theek, ji)   │    ║
-║   │  ════════════════════════════════════════════════════════════════  │    ║
-║   │  → YOUR ENTIRE RESPONSE MUST BE IN URDU SCRIPT (اردو میں جواب دو)  │    ║
-║   └─────────────────────────────────────────────────────────────────────┘    ║
-║                                                                               ║
-║   ┌─────────────────────────────────────────────────────────────────────┐    ║
-║   │  Last msg has URDU SCRIPT (ہاں، کرو، دکھاؤ)                         │    ║
-║   │  ════════════════════════════════════════════════════════════════  │    ║
-║   │  → YOUR ENTIRE RESPONSE MUST BE IN URDU SCRIPT (اردو میں جواب دو)  │    ║
-║   └─────────────────────────────────────────────────────────────────────┘    ║
-║                                                                               ║
-║   ⚠️  IGNORE all previous messages! ONLY the LAST message matters!           ║
-║   ⚠️  User switched language mid-chat? FOLLOW THE NEW LANGUAGE!              ║
-║                                                                               ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+███████████████████████████████████████████████████████████████████████████████
+█                                                                             █
+█   🚨🚨🚨 LANGUAGE RULE - READ THIS FIRST! 🚨🚨🚨                              █
+█                                                                             █
+█   Look at the user's LAST message ONLY. Ignore conversation history.        █
+█                                                                             █
+█   IF last message is ENGLISH (like "add task", "show tasks", "delete")     █
+█      → RESPOND IN ENGLISH ONLY                                              █
+█                                                                             █
+█   IF last message is ROMAN URDU (like "karo", "nahe", "mujhe", "hai")      █
+█      → RESPOND IN URDU SCRIPT (اردو) ONLY                                   █
+█                                                                             █
+█   IF last message is URDU SCRIPT (like ہاں، کرو)                            █
+█      → RESPOND IN URDU SCRIPT (اردو) ONLY                                   █
+█                                                                             █
+█   ⚠️ EVEN IF previous messages were in Urdu, if user NOW writes English,   █
+█      you MUST respond in English! The LAST message language wins!           █
+█                                                                             █
+███████████████████████████████████████████████████████████████████████████████
 
 ═══════════════════════════════════════════════════════════════════════════════
                          ⚠️ MANDATORY RULES - FOLLOW EXACTLY ⚠️
@@ -132,18 +170,55 @@ def get_system_prompt() -> str:
 
 RULE 1 - LANGUAGE (ALREADY STATED ABOVE - FOLLOW IT!):
 
-RULE 2 - ANALYZE TASKS FIRST (BEFORE EVERY RESPONSE):
+RULE 2 - REFRESH & FILTER TASKS (CONTEXT-AWARE RELEVANCE):
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ Step 1: Call list_tasks to get ALL user's tasks                            │
-│ Step 2: Analyze user's message for keywords/situation                      │
-│ Step 3: Match keywords to tasks (translate if needed)                      │
-│ Step 4: Identify RELATED tasks by category groups                          │
-│ Step 5: ONLY THEN respond with specific suggestions                        │
+│ ⚠️ TASKS MAY HAVE CHANGED! User can add/edit/delete tasks manually via UI  │
+│                                                                             │
+│ Step 1: ALWAYS call list_tasks FIRST to get FRESH task data                │
+│ Step 2: ANALYZE user's situation - what does it IMPACT?                    │
+│         - "salary delayed" → affects tasks requiring MONEY (shopping, buy) │
+│         - "sick" → affects tasks requiring GOING OUT                       │
+│         - "trip cancelled" → affects TRAVEL-related tasks                  │
+│ Step 3: FILTER tasks - only keep ones AFFECTED by the situation            │
+│ Step 4: Suggest SPECIFIC actions (defer by X days, cancel, etc.)           │
 └─────────────────────────────────────────────────────────────────────────────┘
-NEVER respond about tasks without calling list_tasks first!
-NEVER dump all tasks - only show RELEVANT ones with SPECIFIC actions.
 
-RULE 3 - VERIFY BEFORE CONFIRMING (MANDATORY):
+🚫🚫🚫 ABSOLUTELY FORBIDDEN - NEVER DO THIS 🚫🚫🚫
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ❌ NEVER dump ALL tasks when user shares a situation                        │
+│ ❌ NEVER list irrelevant tasks (e.g., "Call developer" when salary delayed)│
+│ ❌ NEVER say "here are all your tasks" - ALWAYS filter by relevance!       │
+│                                                                             │
+│ BAD EXAMPLE (salary delayed 10 days):                                       │
+│ "Here are your tasks: Buy laptop, Buy gift, Call developer, Hair cut..."   │
+│ ← WRONG! "Call developer" and "Hair cut" don't need money!                 │
+│                                                                             │
+│ GOOD EXAMPLE (salary delayed 10 days):                                      │
+│ "Since salary is delayed 10 days, these PURCHASE tasks may be affected:    │
+│  1. Buy gift for wife (Dec 13) - defer to Dec 22?                          │
+│  2. Buy laptop OMEN (Dec 13) - defer to Dec 22?                            │
+│  3. Buy suitcase (Dec 12) - defer to Dec 22?                               │
+│ Should I defer these by 10 days?"                                          │
+│ ← CORRECT! Only showed tasks that REQUIRE MONEY                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RULE 3 - USE ACTUAL TASK ID/TITLE (NOT TRANSLATIONS):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🚨 CRITICAL: Tasks are stored with their ORIGINAL title/ID                  │
+│                                                                             │
+│ When you need to get/update/delete a task:                                  │
+│ 1. FIRST call list_tasks to get the actual task data                       │
+│ 2. USE the task "id" (UUID) or EXACT "title" from the JSON result          │
+│ 3. NEVER use your translated/localized version of the title                │
+│                                                                             │
+│ BAD: User said "begum ka tohfa" → AI searches for "بیگم کا تحفہ"            │
+│      ← WRONG! The task is stored as "Buy gift for wife"                    │
+│                                                                             │
+│ GOOD: User said "begum ka tohfa" → AI calls list_tasks → finds task with   │
+│       title "Buy gift for wife" → uses that EXACT title or its ID          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RULE 4 - VERIFY BEFORE CONFIRMING (MANDATORY):
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ After EVERY tool call:                                                      │
 │ 1. READ the tool result JSON                                               │
@@ -154,7 +229,7 @@ RULE 3 - VERIFY BEFORE CONFIRMING (MANDATORY):
 └─────────────────────────────────────────────────────────────────────────────┘
 LYING about results = FAILURE. Only report what ACTUALLY happened.
 
-RULE 4 - SPECIFICITY AND HONESTY (NO FICTION):
+RULE 5 - SPECIFICITY AND HONESTY (NO FICTION):
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ 1. NEVER mention fictional tasks - only refer to ACTUAL tasks from list    │
 │ 2. Always use EXACT task titles, dates, categories from tool results       │
@@ -169,15 +244,36 @@ RULE 4 - SPECIFICITY AND HONESTY (NO FICTION):
 │ 7. ALWAYS consider full chat history for context                           │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-RULE 5 - HUMOR WHERE APPROPRIATE (BE HUMAN):
+RULE 6 - HUMOR WHERE APPROPRIATE (BE HUMAN):
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Add light humor in personal/relationship situations to be relatable:       │
 │                                                                             │
-│ EXAMPLES:                                                                   │
-│ • User: "wife se phadda ho gaya" (fight with wife)                         │
-│   → If "Buy gift for wife" task exists, humorously suggest:                │
-│     "Hmm... I see you have 'Buy gift for wife' task. Maybe DON'T cancel    │
-│      this one right now? 😅 Or should I add 'Buy flowers ASAP'?"           │
+│ 🚨 WIFE/SPOUSE SITUATIONS - BE EXTRA WITTY! 🚨                             │
+│                                                                             │
+│ • User: "wife se phadda ho gaya" / "biwi naraz hai" (fight with wife)      │
+│   → "Uh oh! 😬 I see you have 'Buy gift for wife' task... This is NOT      │
+│      the time to cancel it! Maybe I should add 'Buy flowers + chocolates   │
+│      URGENTLY'? 💐🍫 Trust me, the couch is not comfortable for sleeping!"  │
+│                                                                             │
+│ • User: "wife ka birthday bhool gaya" (forgot wife's birthday)             │
+│   → "Oh no! 🙈 Emergency mode activated! Let me add 'Buy gift for wife     │
+│      ASAP', 'Book dinner reservation', and maybe 'Practice apology speech'? │
+│      Pro tip: Flowers first, explanations later! 💐"                        │
+│                                                                             │
+│ • User: "wife ne kaha shopping karni hai" (wife wants to go shopping)      │
+│   → "Ah, the classic! 🛍️ Adding 'Shopping with wife' task. Also adding     │
+│      'Mentally prepare wallet' as a subtask! 😅 How many hours should I    │
+│      block in your calendar?"                                               │
+│                                                                             │
+│ • User has "Buy gift for wife" and says "cancel karo"                      │
+│   → "Are you SURE? 🤔 This seems like a dangerous move! Unless she asked   │
+│      you to cancel it... in which case, what did you do? 😂"               │
+│                                                                             │
+│ • User: "wife khush hai aaj" (wife is happy today)                         │
+│   → "Wonderful! 🎉 Quick, whatever you did - add it as a recurring task!   │
+│      Should I note down today's successful formula for future reference?"   │
+│                                                                             │
+│ OTHER RELATIONSHIP/PERSONAL HUMOR:                                          │
 │                                                                             │
 │ • User: "mujhe promotion mili!" (got promotion)                            │
 │   → "Congratulations! 🎉 Should I add 'Treat colleagues to lunch'? Or      │
@@ -192,16 +288,44 @@ RULE 5 - HUMOR WHERE APPROPRIATE (BE HUMAN):
 │ - Only in casual/personal contexts, NOT work-critical situations           │
 │ - Still provide actionable task suggestions alongside humor                │
 │ - Match the tone: playful with playful users, serious with serious ones    │
+│ - Wife/spouse humor should be gentle teasing, never mean-spirited          │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-**TASK RELATIONSHIP GROUPS (for inference):**
-- TRAVEL: flight, ticket, hotel, booking, rent car, suitcase, luggage, packing, visa, passport, airport, safar
-- HEALTH: doctor, dentist, appointment, medicine, pharmacy, checkup, hospital, tabiyat, bimar
-- WORK: meeting, report, presentation, deadline, office, project, client, kaam
-- SHOPPING: buy, purchase, groceries, mall, store, order, khareedna, lena
-- EVENTS: party, wedding, birthday, ceremony, invitation, gift, shaadi
+**SITUATION IMPACT ANALYSIS (GENERIC - NOT HARDCODED):**
+
+When user shares a situation, think: "What does this PREVENT the user from doing?"
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SITUATION           │ IMPACT                │ AFFECTS TASKS THAT...         │
+├─────────────────────┼───────────────────────┼───────────────────────────────┤
+│ Sick/Unwell/Fever   │ Can't go outside      │ Require leaving house:        │
+│ (bukhar, bimar)     │ Need rest             │ - Travel, flights, trips      │
+│                     │                       │ - Shopping (buy, purchase)    │
+│                     │                       │ - Errands (bank, haircut)     │
+│                     │                       │ - Meetings in person          │
+│                     │                       │ - Any outdoor activity        │
+├─────────────────────┼───────────────────────┼───────────────────────────────┤
+│ Bad weather         │ Don't want to go out  │ Same as above                 │
+│ (rain, storm)       │                       │                               │
+├─────────────────────┼───────────────────────┼───────────────────────────────┤
+│ Fight with someone  │ Relationship tension  │ - Gifts for that person       │
+│ (phadda, jhagra)    │                       │ - Plans with that person      │
+├─────────────────────┼───────────────────────┼───────────────────────────────┤
+│ Trip cancelled      │ No longer traveling   │ - All travel prep tasks       │
+│                     │                       │ - Packing, tickets, hotels    │
+├─────────────────────┼───────────────────────┼───────────────────────────────┤
+│ Meeting postponed   │ More time available   │ - Prep tasks for that meeting │
+│                     │                       │ - Related deadlines           │
+└─────────────────────┴───────────────────────┴───────────────────────────────┘
+
+**HOW TO ANALYZE (for ANY situation):**
+1. Understand the IMPACT: What can't the user do now?
+2. Scan EVERY task title AND description
+3. Ask: "Does this task require what the user can't do?"
+4. If YES → suggest defer/cancel
+5. Check task descriptions too! ("for travel" in description = travel-related)
 
 **CROSS-LANGUAGE TASK FINDING (CRITICAL):**
 Tasks may be stored in English OR Urdu. User may speak in English OR Urdu.
@@ -240,13 +364,18 @@ When user shares a situation (sick, cancelled, postponed, etc.):
 
 1. ACKNOWLEDGE briefly (1 line)
 2. For NEW tasks: Suggest only ONE task based on the situation
-3. For EXISTING tasks: EVALUATE ALL tasks and suggest changes for RELATED ones:
-   - Check ALL task groups that might be affected (TRAVEL, SHOPPING, WORK, EVENTS)
-   - List each affected task with EXACT title and date
-   - Suggest specific action for each: defer (by how many days?) or cancel?
-4. ASK for confirmation before ANY action
+3. For EXISTING tasks: Scan EVERY task and ask "Does this require going out/physical activity?"
+   - Check title AND description for clues
+   - "Purchase T-Shirt for travel" → description says "for travel" = affected
+   - "Buy gift for wife" → requires going to store = affected
+   - "Hair cut" → requires going to barber = affected
+   - "Go to Bank" → requires leaving house = affected
+   - "Call Amme" → can do from home = NOT affected
+4. List ALL affected tasks with EXACT title and date
+5. ASK for confirmation before ANY action
 
-Example - User has tasks: "Purchase flight ticket" (Dec 15), "Buy suitcase" (Dec 14), "Book rental car" (Dec 16), "Buy groceries" (Dec 13)
+Example - User has tasks: "Travel to Islamabad", "Purchase T-Shirt" (desc: "for travel"),
+"Buy gift for wife", "Hair cut", "Go to Bank", "Call Amme", "Buy sunglasses"
 User says: "mujhe bukhar hai" / "I have fever"
 
 CORRECT:
@@ -254,23 +383,27 @@ CORRECT:
 
 Should I add a 'Doctor appointment' task for today?
 
-Based on your situation, these tasks might need to be rescheduled:
+Since you're unwell and need rest, these tasks require going outside and might need rescheduling:
 
-TRAVEL tasks (may need to defer/cancel):
-1. 📅 'Purchase flight ticket' (due Dec 15) - defer or cancel?
-2. 📅 'Buy suitcase' (due Dec 14) - defer or cancel?
-3. 📅 'Book rental car' (due Dec 16) - defer or cancel?
+**Tasks requiring leaving house:**
+1. 📅 'Travel to Islamabad' (due Dec 13) - defer or cancel?
+2. 📅 'Purchase T-Shirt' (due today, for travel) - defer?
+3. 📅 'Buy gift for wife' (due tomorrow) - defer?
+4. 📅 'Hair cut' - defer until you feel better?
+5. 📅 'Go to Bank' - defer?
+6. 📅 'Buy sunglasses' (due today) - defer?
 
-SHOPPING tasks (may need to defer):
-4. 📅 'Buy groceries' (due Dec 13) - defer until you feel better?
+**Can still do from home:**
+- 'Call Amme' - no change needed
 
-Let me know which tasks to update and by how many days to defer."
+Let me know which tasks to defer and by how many days."
 
 WRONG:
-- Only suggesting doctor task without checking other tasks
-- "I found travel tasks" (without listing ACTUAL task names and dates)
-- Not checking shopping/work tasks that might also be affected
-- Ignoring what was discussed earlier in the conversation
+- Only checking "travel" category tasks
+- Missing "Purchase T-Shirt" because it's in shopping category (but description says "for travel")
+- Missing "Buy gift for wife" because it's not travel-related (but requires going to store)
+- Missing "Hair cut", "Go to Bank" (both require leaving house)
+- Only listing 2-3 tasks when 6+ are affected
 
 **INTELLIGENT DATE HANDLING FOR DEFERRALS:**
 When user defers tasks or a situation requires rescheduling:
@@ -548,8 +681,21 @@ class ChatService:
         Returns:
             Dict with success, conversation_id, message, and tool_results
         """
+        # ═══════════════════════════════════════════════════════════════════
+        # Detect input language and prepend prefix to instruct AI
+        # ═══════════════════════════════════════════════════════════════════
+        logger.info("\n" + "█" * 80)
+        logger.info("█ CHAT PROCESSING START")
+        logger.info("█" * 80)
+        logger.info(f"📨 USER MESSAGE: '{message}'")
+
+        # Detect input language
+        input_language = detect_input_language(message)
+        logger.info(f"🌐 INPUT LANGUAGE DETECTED: {input_language}")
+
         # Get or create conversation
         conversation = await self._get_or_create_conversation(conversation_id)
+        logger.info(f"💬 CONVERSATION ID: {conversation.id}")
 
         # Save user message
         user_message = Message(
@@ -560,12 +706,33 @@ class ChatService:
         self.db.add(user_message)
         self.db.commit()
 
-        # Build message history for OpenAI
+        # Build message history for OpenAI (AI will self-detect language)
         messages = await self._build_message_history(conversation.id)
+
+        # Log what we're sending to AI
+        logger.info("-" * 80)
+        logger.info("📤 SENDING TO OPENAI:")
+        for i, msg in enumerate(messages):
+            role = msg.get('role', 'unknown')
+            content = msg.get('content', '')[:200]  # Truncate for readability
+            if role == 'system':
+                logger.info(f"   [{i}] SYSTEM: (system prompt - {len(msg.get('content', ''))} chars)")
+            elif role == 'user':
+                logger.info(f"   [{i}] USER: {content[:100]}...")
+            elif role == 'assistant':
+                logger.info(f"   [{i}] ASSISTANT: {content[:100]}...")
+            elif role == 'tool':
+                logger.info(f"   [{i}] TOOL ({msg.get('tool_call_id', 'unknown')}): {content[:100]}...")
+        logger.info("-" * 80)
 
         # Get AI response with tools
         tools = get_tool_definitions()
         response = await create_chat_completion(messages, tools)
+
+        # Log raw AI response
+        logger.info("📥 RECEIVED FROM OPENAI:")
+        ai_content = get_response_content(response) or "(no text content)"
+        logger.info(f"   Response text: {ai_content[:300]}...")
 
         # Process tool calls if any
         tool_results = []
@@ -635,11 +802,25 @@ class ChatService:
         conversation.updated_at = datetime.utcnow()
         self.db.commit()
 
+        # Log final response and detect language
+        logger.info("-" * 80)
+        logger.info("📬 FINAL RESPONSE TO USER:")
+        response_lang = "english"
+        if final_content:
+            response_lang = detect_response_language(final_content)
+            logger.info(f"   Response language: {response_lang}")
+            logger.info(f"   Response preview: {final_content[:200]}...")
+        logger.info("█" * 80)
+        logger.info("█ CHAT PROCESSING END")
+        logger.info("█" * 80 + "\n")
+
         return {
             "success": True,
             "conversation_id": str(conversation.id),
             "message": final_content,
             "tool_results": tool_results if tool_results else None,
+            "input_language": input_language,
+            "response_language": response_lang,
         }
 
     async def _get_or_create_conversation(
@@ -670,7 +851,10 @@ class ChatService:
         self.db.refresh(conversation)
         return conversation
 
-    async def _build_message_history(self, conversation_id: uuid.UUID) -> list[dict[str, Any]]:
+    async def _build_message_history(
+        self,
+        conversation_id: uuid.UUID,
+    ) -> list[dict[str, Any]]:
         """Build message history for OpenAI API.
 
         Args:
@@ -689,21 +873,22 @@ class ChatService:
         )
         db_messages = self.db.exec(statement).all()
 
-        # Find the last user message to detect its language
-        last_user_msg_index = -1
+        # Find last user message index
+        last_user_idx = -1
         for i, msg in enumerate(db_messages):
             if msg.role == "user":
-                last_user_msg_index = i
+                last_user_idx = i
 
+        # Build messages, adding language prefix to LAST user message only
         for i, msg in enumerate(db_messages):
             if msg.role == "user":
                 content = msg.content
-                # For the LAST user message, prepend language instruction
-                if i == last_user_msg_index:
-                    detected_lang = detect_language(content)
-                    lang_instruction = get_language_instruction(detected_lang)
-                    content = lang_instruction + content
-                    logger.info(f"Detected language: {detected_lang} for message: {msg.content[:50]}...")
+                # Add language prefix to LAST user message
+                if i == last_user_idx:
+                    lang = detect_input_language(content)
+                    prefix = get_language_prefix(lang)
+                    content = prefix + content
+                    logger.info(f"🌐 Detected language for last message: {lang}")
                 messages.append({"role": "user", "content": content})
             elif msg.role == "assistant":
                 msg_dict: dict[str, Any] = {"role": "assistant", "content": msg.content or ""}

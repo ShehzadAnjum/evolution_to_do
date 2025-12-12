@@ -27,6 +27,10 @@ export interface ChatResponse {
   message: string;
   /** Results from any tools invoked by the AI */
   tool_results?: ToolResult[];
+  /** Detected language of user's input */
+  input_language?: "english" | "roman_urdu" | "urdu_script";
+  /** Detected language of the response */
+  response_language?: "english" | "urdu_script";
 }
 
 /**
@@ -71,6 +75,10 @@ export interface ChatMessage {
   tool_call_id?: string;
   /** When the message was created */
   created_at: string;
+  /** Detected language of user's input */
+  input_language?: "english" | "roman_urdu" | "urdu_script";
+  /** Detected language of the response (for assistant messages) */
+  response_language?: "english" | "urdu_script";
 }
 
 /**

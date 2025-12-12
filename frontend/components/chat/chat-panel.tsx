@@ -71,7 +71,15 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
             arguments: tr.result || {},
           })),
           created_at: new Date().toISOString(),
+          input_language: data.input_language,
+          response_language: data.response_language,
         };
+
+        // Debug: Log full response data and message object
+        console.log("[ChatPanel] Full API response:", JSON.stringify(data, null, 2));
+        console.log("[ChatPanel] Assistant message object:", JSON.stringify(assistantMessage, null, 2));
+        console.log("[ChatPanel] input_language value:", assistantMessage.input_language);
+
         setMessages((prev) => [...prev, assistantMessage]);
 
         // Refresh task list if any task-related tool was called
@@ -131,13 +139,13 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
             <span className="text-xl">🤖</span>
             <h2 className="font-semibold text-foreground">AI Assistant</h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={clearChat}
-              className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-              title="Clear chat"
+              className="flex items-center gap-1 px-2 py-1 text-xs hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+              title="Clear all chat messages"
             >
-              🗑️
+              🗑️ <span>Clear</span>
             </button>
             <button
               onClick={onClose}
@@ -189,11 +197,6 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
             disabled={isLoading}
             placeholder="Ask me to manage your tasks..."
           />
-        </div>
-
-        {/* Version number */}
-        <div className="absolute bottom-14 right-2 text-[10px] text-muted-foreground/50">
-          v05.07.001
         </div>
       </div>
     </>
