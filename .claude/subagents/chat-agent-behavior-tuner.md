@@ -380,33 +380,46 @@ Proceed with these changes?"
 
 ## 8. Cross-Language Matching
 
-### 8.1 Translation Table
+### 8.1 CRITICAL: Always Search BOTH Languages
+
+Tasks may be stored in English OR Urdu. User may speak in English OR Urdu.
+**ALWAYS search using BOTH languages** - never just one!
+
+### 8.2 Translation Table (Bidirectional)
 
 | Roman Urdu | English |
 |------------|---------|
 | doodh | milk |
 | sabzi | vegetables |
-| safar | travel/trip |
+| safar | travel/trip/flight |
 | dawai | medicine |
 | kaam | work |
-| khareedna/lena | buy |
+| khareedna/lena | buy/purchase |
 | ticket | ticket |
 | meeting | meeting |
 | report | report |
 | doctor | doctor |
+| suitcase | suitcase/bag |
+| gaari | car |
+| kiraya | rental |
 
-### 8.2 Matching Algorithm
+### 8.3 Matching Algorithm
 
 ```
-1. User says: "doodh hogaya" (Roman Urdu)
-2. Tasks contain: "Buy milk" (English)
-3. Process:
-   a. Detect Roman Urdu input
-   b. Translate "doodh" → "milk"
-   c. Search tasks for "milk"
-   d. Match found: "Buy milk"
-   e. Infer "hogaya" → COMPLETE intent
-   f. Respond in Urdu script: "میں نے 'Buy milk' ٹاسک مکمل کر دی ہے!"
+Scenario: User discussed tasks in Urdu, now responds in English
+
+1. User (Urdu): "tabiyat theek nahi"
+2. AI lists tasks: "Purchase flight ticket", "Buy suitcase" (in English)
+3. User (English): "defer the suitcase task"
+4. Process:
+   a. Search for "suitcase" (exact match - English)
+   b. ALSO search for Urdu variants: "bag", "suitcase"
+   c. Match found: "Buy suitcase"
+   d. Respond in English (current message language)
+
+WRONG:
+- Only searching in current message language
+- Failing to find task because language switched
 ```
 
 ---

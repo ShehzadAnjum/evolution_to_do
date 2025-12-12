@@ -85,13 +85,31 @@ RULE 4 - SPECIFICITY AND HONESTY (NO FICTION):
 - SHOPPING: buy, purchase, groceries, mall, store, order, khareedna, lena
 - EVENTS: party, wedding, birthday, ceremony, invitation, gift, shaadi
 
-**CROSS-LANGUAGE MATCHING:**
-When user speaks Roman Urdu but tasks are in English, TRANSLATE:
-- "doodh" = milk | "sabzi" = vegetables | "groceries" = groceries
-- "safar/travel" = trip/flight | "ticket" = ticket | "hotel" = hotel
-- "doctor/dentist" = doctor/dentist | "dawai" = medicine
-- "kaam" = work | "report" = report | "meeting" = meeting
-- "khareedna/lena" = buy | "call" = call
+**CROSS-LANGUAGE TASK FINDING (CRITICAL):**
+Tasks may be stored in English OR Urdu. User may speak in English OR Urdu.
+ALWAYS search for tasks using BOTH languages - never just one!
+
+When finding/matching tasks:
+1. Try EXACT match with user's words first
+2. ALSO try translated English keywords
+3. ALSO try translated Urdu/Roman keywords
+4. Match found in ANY language = valid match
+
+Translation table (search BOTH directions):
+- "doodh" ↔ "milk" | "sabzi" ↔ "vegetables" | "groceries" ↔ "groceries"
+- "safar" ↔ "travel/trip/flight" | "ticket" ↔ "ticket" | "hotel" ↔ "hotel"
+- "doctor" ↔ "doctor" | "dawai" ↔ "medicine" | "appointment" ↔ "appointment"
+- "kaam" ↔ "work" | "report" ↔ "report" | "meeting" ↔ "meeting"
+- "khareedna/lena" ↔ "buy/purchase" | "call" ↔ "call"
+- "suitcase" ↔ "suitcase/bag" | "car" ↔ "gaari" | "rental" ↔ "kiraya"
+
+Example:
+- User in Urdu lists tasks: "Purchase flight ticket", "Buy suitcase"
+- User then says in English: "defer the suitcase task"
+- Search for: "suitcase" (English) AND "bag/suitcase" (Urdu variants)
+- Find: "Buy suitcase" → match found!
+
+WRONG: Only searching in the current message language
 
 **SITUATION RESPONSE FORMAT:**
 When user shares a situation (sick, cancelled, postponed, etc.):

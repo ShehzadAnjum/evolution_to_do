@@ -162,8 +162,8 @@ export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
           </div>
         )}
 
-        {/* Messages area */}
-        <div className="flex-1 overflow-hidden">
+        {/* Messages area - scrollable */}
+        <div className="flex-1 overflow-y-auto min-h-0">
           <MessageList messages={messages} isLoading={isLoading} />
         </div>
 
