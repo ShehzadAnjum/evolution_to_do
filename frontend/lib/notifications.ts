@@ -12,7 +12,6 @@
 let isRinging = false;
 let ringInterval: NodeJS.Timeout | null = null;
 let ringTimeout: NodeJS.Timeout | null = null;
-let audioContext: AudioContext | null = null;
 
 // Bell vibration callbacks (set by UI component)
 let onBellStart: (() => void) | null = null;
@@ -29,30 +28,34 @@ export function isBellRinging(): boolean {
 }
 
 // Play a single bell chime
-function playBellChime(): void {
+async function playBellChime(): Promise<void> {
   if (typeof window === 'undefined') return;
 
   try {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // Create new AudioContext each time for reliability
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    // Resume if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
     }
 
     const playTone = (frequency: number, startTime: number, duration: number, volume: number) => {
-      const oscillator = audioContext!.createOscillator();
-      const gainNode = audioContext!.createGain();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
 
       oscillator.connect(gainNode);
-      gainNode.connect(audioContext!.destination);
+      gainNode.connect(ctx.destination);
 
       oscillator.frequency.value = frequency;
       oscillator.type = 'sine';
 
-      gainNode.gain.setValueAtTime(0, audioContext!.currentTime + startTime);
-      gainNode.gain.linearRampToValueAtTime(volume, audioContext!.currentTime + startTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext!.currentTime + startTime + duration);
+      gainNode.gain.setValueAtTime(0, ctx.currentTime + startTime);
+      gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + startTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
 
-      oscillator.start(audioContext!.currentTime + startTime);
-      oscillator.stop(audioContext!.currentTime + startTime + duration);
+      oscillator.start(ctx.currentTime + startTime);
+      oscillator.stop(ctx.currentTime + startTime + duration);
     };
 
     // Bell sound: fundamental + harmonics (two rings)
@@ -62,6 +65,11 @@ function playBellChime(): void {
     playTone(800, 0.3, 0.5, 0.25);
     playTone(1200, 0.3, 0.4, 0.12);
     playTone(1600, 0.3, 0.3, 0.08);
+
+    // Close context after sound finishes
+    setTimeout(() => ctx.close(), 1000);
+
+    console.log('🔔 Chime played');
   } catch (err) {
     console.warn('Could not play bell sound:', err);
   }
@@ -69,10 +77,13 @@ function playBellChime(): void {
 
 // Start continuous bell ringing (sound + visual) for up to 10 seconds
 export function startBellRing(): void {
-  if (isRinging) return;
+  if (isRinging) {
+    console.log('🔔 Bell already ringing, ignoring');
+    return;
+  }
 
   isRinging = true;
-  console.log('🔔 Bell ringing started');
+  console.log('🔔 Bell ringing STARTED - will ring for 10 seconds');
 
   // Play first chime immediately
   playBellChime();
@@ -80,17 +91,22 @@ export function startBellRing(): void {
   // Start visual animation
   if (onBellStart) {
     onBellStart();
+    console.log('🔔 Visual animation started');
   }
 
   // Repeat chime every 1.5 seconds
+  let chimeCount = 1;
   ringInterval = setInterval(() => {
     if (isRinging) {
+      chimeCount++;
+      console.log(`🔔 Chime #${chimeCount}`);
       playBellChime();
     }
   }, 1500);
 
   // Auto-stop after 10 seconds
   ringTimeout = setTimeout(() => {
+    console.log('🔔 10 seconds elapsed, auto-stopping');
     stopBellRing();
   }, 10000);
 }
