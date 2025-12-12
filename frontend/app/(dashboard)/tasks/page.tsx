@@ -24,6 +24,7 @@ import {
   getNotificationPermission,
   requestNotificationPermission,
   scheduleAllTaskNotifications,
+  testNotification,
 } from "@/lib/notifications";
 
 export default function TasksPage() {
@@ -433,7 +434,14 @@ export default function TasksPage() {
             {/* Notification Toggle */}
             {notificationPermission !== 'unsupported' && (
               <button
-                onClick={notificationPermission !== 'granted' ? handleRequestNotificationPermission : undefined}
+                onClick={() => {
+                  if (notificationPermission !== 'granted') {
+                    handleRequestNotificationPermission();
+                  } else {
+                    // When already granted, clicking sends a test notification
+                    testNotification();
+                  }
+                }}
                 className={`p-2 rounded-lg transition-colors ${
                   notificationPermission === 'granted'
                     ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
@@ -443,7 +451,7 @@ export default function TasksPage() {
                 }`}
                 title={
                   notificationPermission === 'granted'
-                    ? 'Notifications enabled'
+                    ? 'Click to test notification'
                     : notificationPermission === 'denied'
                     ? 'Notifications blocked (enable in browser settings)'
                     : 'Enable task reminders'

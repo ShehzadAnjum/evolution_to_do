@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-13 (Voice Chat Fixes Session)
+**Last Updated**: 2025-12-13 (Phase V Part A Session)
 **Updated By**: AI Assistant (Claude Code)
-**Current Phase**: Phase III - AI Chat Agent Enhancement
+**Current Phase**: Phase V - Advanced Features
 **Current Branch**: main
-**Current Version**: 05.08.002
+**Current Version**: 05.09.001
 
 ---
 
@@ -19,22 +19,36 @@
 - **Complete: Phase IV** - Docker + Kubernetes + Helm (local Minikube)
 - **Complete: Phase V Local** - Kafka + Dapr on Minikube WORKING
 - **Complete: AI Chat Agent v2.2** - Bilingual + Humor + Smart Filtering
-- **Deferred: Phase V Cloud** - GKE quota exceeded, pending increase
+- **Complete: Phase V Part A** - Advanced Features (search, filter, sort, time, notifications, recurring)
+- **Pending: Phase V Part C** - Cloud Deployment (DOKS, Redpanda, CI/CD)
 
-### Last Session Summary (2025-12-13 Voice Chat Fixes)
+### Last Session Summary (2025-12-13 Phase V Part A)
 - What accomplished:
-  - **Voice Chat Fixes (v05.08.002)**:
-    - **Language Detection Fix**: Removed false positives from Roman Urdu patterns
-      - Words removed: `to`, `ya`, `he`, `ho`, `ki`, `na`, `g`, `din`, `wife`, `office`
-      - Now: Strong English (1+) with no Roman Urdu → English
-      - English speech now correctly stays in English
-    - **TTS Punctuation Fix**: Added `clean_text_for_tts()` function
-      - Strips: quotes (`"`, `'`), markdown (`**`, `*`), backticks, list markers
-      - TTS now sounds natural without reading punctuation
-    - **Task Relevance Fix**: Added "STRICT RELEVANCE" rule to system prompt
-      - Only suggest tasks with DIRECT logical connection
-      - "grocery shopping" → groceries, shopping, food (NOT "hang out with friends")
-      - Test: "Does this task have a LOGICAL connection?" - if NO, don't suggest
+  - **Phase V Part A: Advanced Features (v05.09.001)**:
+    1. **Search & Filter**:
+       - Backend: Query params (search, category, priority, status)
+       - Frontend: Search bar, category pills, client-side filtering
+    2. **Sort Tasks**:
+       - Sort by: created_at, due_date, priority, title
+       - Ascending/descending toggle button
+    3. **Due Dates with Time Pickers**:
+       - Backend: Added `due_time` field (HH:MM format)
+       - Frontend: Time input alongside date picker
+       - Display: 12-hour format with AM/PM
+    4. **Browser Notifications**:
+       - Permission request flow (click bell icon)
+       - Scheduled notifications at due time
+       - 15-minute early warnings
+       - Test button (click green bell to test)
+       - **Limitation**: Browser tab must be open
+    5. **Recurring Tasks**:
+       - Patterns: none, daily, weekly, biweekly, monthly
+       - Auto-reschedule on completion (due_date advances)
+       - Recurrence indicator (🔄) in task list
+
+  - **Database Migrations**:
+    - `due_time VARCHAR(5)` column added
+    - `recurrence_pattern VARCHAR(10)` column added
 
 - **Previous Session (Voice Chat Feature v05.08.001)** - FREE, no API costs!
     - **Speech-to-Text**: Web Speech API (browser native)

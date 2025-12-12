@@ -49,12 +49,26 @@ export function showTaskReminder(
 ): Notification | null {
   const timeStr = dueTime ? ` at ${formatTime12Hour(dueTime)}` : '';
 
+  console.log(`🔔 Showing notification for: ${taskTitle}`);
+
   return showNotification(
     `Task Reminder: ${taskTitle}`,
     {
       body: `Your task is due${timeStr}`,
       tag: taskId || 'task-reminder', // Prevents duplicate notifications
       requireInteraction: true, // Notification stays until dismissed
+    }
+  );
+}
+
+// Test notification - call this to verify notifications work
+export function testNotification(): Notification | null {
+  console.log('🔔 Testing notification...');
+  return showNotification(
+    'Test Notification',
+    {
+      body: 'If you see this, notifications are working!',
+      tag: 'test-notification',
     }
   );
 }
@@ -85,7 +99,10 @@ export function scheduleTaskNotification(task: SchedulableTask): void {
   clearTaskNotification(task.id);
 
   // Don't schedule if task is complete or has no due date/time
-  if (task.is_complete || !task.due_date || !task.due_time) return;
+  if (task.is_complete || !task.due_date || !task.due_time) {
+    console.log(`⏭️ Skipping notification for "${task.title}" - complete: ${task.is_complete}, date: ${task.due_date}, time: ${task.due_time}`);
+    return;
+  }
 
   // Parse due date and time
   const [year, month, day] = task.due_date.split('-').map(Number);
@@ -98,7 +115,13 @@ export function scheduleTaskNotification(task: SchedulableTask): void {
   const msUntilDue = dueDateTime.getTime() - now.getTime();
 
   // Don't schedule if already past
-  if (msUntilDue <= 0) return;
+  if (msUntilDue <= 0) {
+    console.log(`⏭️ Skipping notification for "${task.title}" - already past (${msUntilDue}ms ago)`);
+    return;
+  }
+
+  const minutesUntilDue = Math.round(msUntilDue / 60000);
+  console.log(`📅 Scheduled notification for "${task.title}" in ${minutesUntilDue} minutes (${dueDateTime.toLocaleString()})`);
 
   // Schedule notification at due time
   const timeout = setTimeout(() => {
