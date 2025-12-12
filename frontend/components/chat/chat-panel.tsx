@@ -9,9 +9,10 @@ import type { ChatMessage, ChatResponse } from "@/lib/chat/types";
 interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  onTasksChanged?: () => void;
 }
 
-export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
+export function ChatPanel({ isOpen, onClose, onTasksChanged }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +73,15 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
           created_at: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
+
+        // Refresh task list if any task-related tool was called
+        if (data.tool_results && data.tool_results.length > 0 && onTasksChanged) {
+          const taskTools = ["add_task", "update_task", "delete_task", "complete_task"];
+          const hasTaskChange = data.tool_results.some((tr) => taskTools.includes(tr.tool));
+          if (hasTaskChange) {
+            onTasksChanged();
+          }
+        }
       } catch (err) {
         let errorMessage = err instanceof Error ? err.message : "Failed to send message";
         // Handle common backend errors

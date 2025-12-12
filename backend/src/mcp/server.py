@@ -23,7 +23,7 @@ def get_tool_definitions() -> list[dict[str, Any]]:
             "type": "function",
             "function": {
                 "name": "add_task",
-                "description": "Create a new task for the current user",
+                "description": "Create a new task for the current user. Infer category from task context if not specified.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -34,6 +34,19 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                         "description": {
                             "type": "string",
                             "description": "Optional detailed description of the task",
+                        },
+                        "priority": {
+                            "type": "string",
+                            "description": "Task priority: high, medium, or low. Defaults to medium if not specified.",
+                            "enum": ["high", "medium", "low"],
+                        },
+                        "category": {
+                            "type": "string",
+                            "description": "Task category. Infer from context: work (job/office tasks), personal (home/family), study (learning/education), shopping (buying items), or general (default).",
+                        },
+                        "due_date": {
+                            "type": "string",
+                            "description": "Due date in YYYY-MM-DD format. Defaults to today if not specified.",
                         },
                     },
                     "required": ["title"],

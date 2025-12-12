@@ -69,13 +69,16 @@ class ToolExecutor:
         """Create a new task.
 
         Args:
-            arguments: {title: str, description?: str}
+            arguments: {title: str, description?: str, priority?: str, category?: str, due_date?: str}
 
         Returns:
             Created task details
         """
         title = arguments.get("title", "").strip()
         description = arguments.get("description", "").strip()
+        priority = arguments.get("priority", "medium").lower()
+        category = arguments.get("category", "general").lower()
+        due_date_str = arguments.get("due_date")
 
         if not title:
             return {"success": False, "error": "Title is required"}
@@ -83,11 +86,36 @@ class ToolExecutor:
         if len(title) > 200:
             return {"success": False, "error": "Title must be 200 characters or less"}
 
+        # Validate priority
+        if priority not in ["high", "medium", "low"]:
+            priority = "medium"
+
+        # Validate category (default categories)
+        valid_categories = ["work", "personal", "study", "shopping", "general"]
+        if category not in valid_categories:
+            # Allow custom categories, just use as-is
+            pass
+
+        # Parse due_date or default to today
+        due_date = None
+        if due_date_str:
+            try:
+                due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                # If invalid format, default to today
+                due_date = datetime.utcnow().date()
+        else:
+            # Default to today
+            due_date = datetime.utcnow().date()
+
         task = TaskDB(
             title=title,
             description=description,
             is_complete=False,
             user_id=self.user_id,
+            priority=priority,
+            category=category,
+            due_date=due_date,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
@@ -103,6 +131,9 @@ class ToolExecutor:
                 "title": task.title,
                 "description": task.description,
                 "is_complete": task.is_complete,
+                "priority": task.priority,
+                "category": task.category,
+                "due_date": str(task.due_date) if task.due_date else None,
                 "created_at": task.created_at.isoformat(),
             },
             "message": f"Task '{title}' created successfully",

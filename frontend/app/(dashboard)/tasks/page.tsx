@@ -511,7 +511,7 @@ export default function TasksPage() {
       </Dialog>
 
       {/* Chat Panel */}
-      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} onTasksChanged={loadTasks} />
     </div>
   );
 }
