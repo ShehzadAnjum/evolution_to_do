@@ -392,7 +392,7 @@ export default function TasksPage() {
               <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive font-medium">
                 ⚠️ {error}
                 <button
-                  onClick={loadTasks}
+                  onClick={() => loadTasks()}
                   className="ml-4 text-sm font-semibold underline hover:no-underline"
                 >
                   Retry
