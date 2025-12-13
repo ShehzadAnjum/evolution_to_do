@@ -65,9 +65,8 @@ ingress:
           service: frontend
   tls: []
 
-# Image pull secrets (for private GHCR)
-imagePullSecrets:
-  - name: ghcr-secret
+# Image pull secrets (for private GHCR) - leave empty for public images
+imagePullSecrets: []
 
 # Pod security context
 securityContext:
