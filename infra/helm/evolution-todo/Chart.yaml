@@ -1,0 +1,13 @@
+apiVersion: v2
+name: evolution-todo
+description: Evolution of Todo - Full-stack task management app
+type: application
+version: 1.0.0
+appVersion: "05.09.003"
+keywords:
+  - todo
+  - tasks
+  - ai-chat
+  - voice
+maintainers:
+  - name: Evolution Todo Team
