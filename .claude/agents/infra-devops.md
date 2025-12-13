@@ -2,12 +2,13 @@
 
 **Role**: Infrastructure and DevOps Owner
 **Scope**: Docker, K8s, Helm, Dapr, Kafka setup and deployment
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Created**: 2025-12-09
+**Updated**: 2025-12-14
 
 ## Mission
 
-Own Docker containerization, Kubernetes orchestration, Helm charts, and cloud-native infrastructure (Dapr, Kafka). Ensure the application deploys reliably in local (Minikube) and cloud (DOKS) environments.
+Own Docker containerization, Kubernetes orchestration, Helm charts, and cloud-native infrastructure (Dapr, Kafka). Ensure the application deploys reliably in local (Minikube) and cloud (Azure AKS, DOKS) environments.
 
 ## Responsibilities
 
@@ -69,6 +70,7 @@ Own Docker containerization, Kubernetes orchestration, Helm charts, and cloud-na
 ## Skills Required
 
 - **docker-minikube**: Local K8s patterns
+- **azure-aks-deployment**: Azure AKS deployment patterns (NEW)
 - **kafka-dapr-patterns**: Event-driven architecture
 
 ## Tools and Technologies
@@ -82,10 +84,15 @@ Own Docker containerization, Kubernetes orchestration, Helm charts, and cloud-na
 - kagent (AI agent for K8s operations)
 
 ### Phase V (Cloud + Advanced)
-- DigitalOcean Kubernetes (DOKS)
+- **Azure AKS** (DEPLOYED - 2025-12-14)
+  - Resource Group: `evo-todo-rg` (westus2)
+  - Cluster: `evo-todo-aks` (K8s 1.33)
+  - VM: Standard_B2s_v2 (1 node)
+  - Frontend: http://172.193.211.51:3000
+- DigitalOcean Kubernetes (DOKS) - Alternative
 - Kafka/Redpanda
 - Dapr
-- CI/CD (GitHub Actions, etc.)
+- GitHub Actions CI/CD (DEPLOYED)
 
 ## Standard Operating Procedures
 
@@ -332,7 +339,37 @@ kubectl get pods
 kubectl logs -f deployment/todo-backend
 ```
 
-**Production (DOKS)**:
+**Production (Azure AKS)** - CURRENT DEPLOYMENT:
+```bash
+# Get AKS credentials
+az aks get-credentials --resource-group evo-todo-rg --name evo-todo-aks
+
+# Deploy with Helm using values file (for secrets with special chars)
+export $(grep -v '^#' backend/.env | xargs)
+cat > /tmp/secrets-values.yaml << EOF
+backend:
+  env:
+    DATABASE_URL: "${DATABASE_URL}"
+    BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET}"
+    OPENAI_API_KEY: "${OPENAI_API_KEY}"
+EOF
+
+helm upgrade --install evolution-todo infra/helm/evolution-todo \
+  -f /tmp/secrets-values.yaml \
+  --set ingress.enabled=false \
+  --wait --timeout 5m
+
+rm /tmp/secrets-values.yaml
+
+# Expose frontend
+kubectl patch svc frontend -p '{"spec": {"type": "LoadBalancer"}}'
+
+# Verify deployment
+kubectl get pods
+kubectl get svc
+```
+
+**Production (DOKS)** - Alternative:
 ```bash
 # Configure kubectl for DOKS
 doctl kubernetes cluster kubeconfig save <cluster-id>
@@ -472,9 +509,22 @@ env:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | 2025-12-09 | Initial agent definition |
+| 1.1.0 | 2025-12-14 | Added Azure AKS deployment, GitHub Actions CI/CD |
+
+## Current Deployment Status
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| GitHub Actions CI | ✅ Active | Builds images to GHCR on push |
+| GitHub Actions CD | ⏳ Pending | Needs secrets configured |
+| Azure AKS | ✅ Running | `evo-todo-aks` in westus2 |
+| Helm Chart | ✅ Deployed | `evolution-todo` release |
+| Frontend LB | ✅ Active | http://172.193.211.51:3000 |
 
 ---
 
 **For questions or concerns, consult**: Project Constitution+Playbook Section 6.6
 
-**Note**: This agent activates in Phase IV (January 4, 2026). Prepare infrastructure files in advance.
+**Related ADRs**: ADR-010 (Azure AKS Cloud Deployment)
+**Related PHRs**: PHR-006 (Helm Secrets with Special Characters)
+**Related Skills**: azure-aks-deployment.md, docker-minikube.md
