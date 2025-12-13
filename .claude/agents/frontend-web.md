@@ -71,6 +71,8 @@ Own the Next.js application including UI implementation, ChatKit integration, an
 - **better-auth-jwt**: JWT token handling on client
 - **chatkit-integration**: ChatKit setup (Phase III+)
 - **vercel-deployment**: Vercel-specific patterns
+- **voice-chat-bilingual**: Speech-to-text and TTS integration
+- **browser-notifications**: Notification API and Web Audio patterns
 
 ## Tools and Technologies
 
@@ -251,11 +253,14 @@ export function TaskForm() {
 - No changes (containerization doesn't affect frontend)
 - Just verify deployment still works
 
-### Phase V (Future)
+### Phase V (Complete - Part A)
 - Add: Advanced UI features
-- Recurring task UI
-- Reminder notifications
-- Priority and tag filters
+- Search bar and category filter pills
+- Sort dropdown (date, priority, title)
+- Due time picker (12-hour format display)
+- Browser notifications with bell sound/animation
+- Recurring task selector and indicator (🔄)
+- Voice chat (Web Speech API + Edge TTS)
 
 ## Common Patterns
 
@@ -352,6 +357,7 @@ export default async function TasksPage() {
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | 2025-12-09 | Initial agent definition |
+| 1.1.0 | 2025-12-13 | Added Phase V Part A features, voice-chat and browser-notifications skills |
 
 ---
 

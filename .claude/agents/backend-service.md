@@ -226,10 +226,18 @@ Every API endpoint needs:
 - Health checks: /health and /ready endpoints
 - No new features (just packaging)
 
-### Phase V (Future)
+### Phase V (Complete - Part A)
+- Search/filter query params (search, category, priority, status)
+- Sort query params (sort_by, sort_order)
+- Due time field (HH:MM format)
+- Recurring tasks with auto-reschedule on completion
+- Voice synthesis endpoint (Edge TTS)
+- Database migrations without Alembic (ALTER TABLE IF NOT EXISTS)
+
+### Phase V (Pending - Part C)
 - Events: Publish domain events to Kafka
 - Dapr: Use Dapr pub/sub components
-- Advanced features: Recurring tasks, reminders
+- Cloud deployment: DOKS, Redpanda
 
 ## Common Patterns
 
@@ -323,6 +331,7 @@ except Exception as e:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | 2025-12-09 | Initial agent definition |
+| 1.1.0 | 2025-12-13 | Added Phase V Part A features (search, sort, recurring, voice) |
 
 ---
 
