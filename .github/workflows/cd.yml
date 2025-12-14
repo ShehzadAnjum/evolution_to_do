@@ -39,17 +39,37 @@ jobs:
           version: 'latest'
 
       - name: Deploy with Helm
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
+          # Create values file with secrets (use env vars to avoid shell escaping issues)
+          cat > /tmp/secrets-values.yaml << EOF
+          backend:
+            image:
+              tag: "${IMAGE_TAG}"
+            env:
+              DATABASE_URL: "${DATABASE_URL}"
+              BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET}"
+              OPENAI_API_KEY: "${OPENAI_API_KEY}"
+          frontend:
+            image:
+              tag: "${IMAGE_TAG}"
+          ingress:
+            enabled: false
+          EOF
+
+          # Deploy
           helm upgrade --install ${{ env.HELM_RELEASE_NAME }} \
             ./infra/helm/evolution-todo \
-            --set backend.image.tag=${{ github.sha }} \
-            --set frontend.image.tag=${{ github.sha }} \
-            --set backend.env.DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-            --set backend.env.BETTER_AUTH_SECRET="${{ secrets.BETTER_AUTH_SECRET }}" \
-            --set backend.env.OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
-            --set ingress.enabled=false \
+            -f /tmp/secrets-values.yaml \
             --wait \
             --timeout 5m
+
+          # Cleanup
+          rm -f /tmp/secrets-values.yaml
 
       - name: Verify deployment
         run: |
