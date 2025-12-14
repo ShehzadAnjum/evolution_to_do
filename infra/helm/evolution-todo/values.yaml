@@ -37,7 +37,7 @@ frontend:
     tag: latest
     pullPolicy: Always
   service:
-    type: ClusterIP
+    type: LoadBalancer  # External access via Azure LB
     port: 3000
   resources:
     limits:
