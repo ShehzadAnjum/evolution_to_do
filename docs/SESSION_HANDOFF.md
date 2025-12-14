@@ -39,11 +39,14 @@
 | AKS Cluster | `evo-todo-aks` (K8s 1.33) |
 | Azure SP | `evolution-todo-github-actions` |
 
-**GitHub Secrets Required (for CD):**
+**GitHub Secrets Configured:** ✅
 - `AZURE_CREDENTIALS` - Service principal JSON
 - `DATABASE_URL` - Neon PostgreSQL URL
 - `BETTER_AUTH_SECRET` - Auth secret
 - `OPENAI_API_KEY` - OpenAI key
+
+**CI/CD Pipeline:** ✅ WORKING
+- Push to main → CI builds images → CD deploys to AKS
 
 ### Previous Session (2025-12-14 Reusable Intelligence Update)
 

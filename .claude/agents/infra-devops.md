@@ -516,10 +516,10 @@ env:
 | Component | Status | Details |
 |-----------|--------|---------|
 | GitHub Actions CI | ✅ Active | Builds images to GHCR on push |
-| GitHub Actions CD | ⏳ Pending | Needs secrets configured |
+| GitHub Actions CD | ✅ Active | Auto-deploys on CI success |
 | Azure AKS | ✅ Running | `evo-todo-aks` in westus2 |
 | Helm Chart | ✅ Deployed | `evolution-todo` release |
-| Frontend LB | ✅ Active | http://172.193.211.51:3000 |
+| Frontend LB | ✅ Active | http://4.149.131.3:3000 |
 
 ---
 
