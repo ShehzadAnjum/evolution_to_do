@@ -260,7 +260,7 @@ const sortedTasks = useMemo(() => {
 | Frontend (v2) | Vercel | https://evolution-to-do.vercel.app | Live |
 | Backend | Railway | https://evolutiontodo-production-e1b6.up.railway.app | Live |
 | Database | Neon | PostgreSQL (v2.0.0 schema) | Connected |
-| **Frontend (K8s)** | Azure AKS | http://48.200.0.66:3000 | Live |
+| **Frontend (K8s)** | Azure AKS | http://48.192.66.23:3000 | Live |
 | **Backend (K8s)** | Azure AKS | ClusterIP (internal only) | Running |
 | CI/CD | GitHub Actions | Push → Build → Deploy | Active |
 
