@@ -80,6 +80,13 @@ jobs:
           # Cleanup
           rm -f /tmp/secrets-values.yaml
 
+      - name: Force pod restart to pull latest images
+        run: |
+          # Force restart to ensure pods pull the latest images
+          # Required because 'latest' tag + unchanged spec = no restart
+          kubectl rollout restart deployment/frontend
+          kubectl rollout restart deployment/backend
+
       - name: Verify deployment
         run: |
           kubectl rollout status deployment/backend --timeout=120s
