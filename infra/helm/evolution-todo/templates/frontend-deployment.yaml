@@ -30,6 +30,16 @@ spec:
           env:
             - name: NEXT_PUBLIC_API_URL
               value: {{ .Values.frontend.env.NEXT_PUBLIC_API_URL | quote }}
+            - name: DATABASE_URL
+              value: {{ .Values.frontend.env.DATABASE_URL | quote }}
+            - name: BETTER_AUTH_SECRET
+              value: {{ .Values.frontend.env.BETTER_AUTH_SECRET | quote }}
+            - name: BETTER_AUTH_URL
+              value: {{ .Values.frontend.env.BETTER_AUTH_URL | quote }}
+            - name: GOOGLE_CLIENT_ID
+              value: {{ .Values.frontend.env.GOOGLE_CLIENT_ID | quote }}
+            - name: GOOGLE_CLIENT_SECRET
+              value: {{ .Values.frontend.env.GOOGLE_CLIENT_SECRET | quote }}
           {{- if .Values.healthCheck.enabled }}
           livenessProbe:
             httpGet:

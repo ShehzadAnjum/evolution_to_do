@@ -43,6 +43,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           # Use short SHA (7 chars) to match CI image tags, or 'latest'
           IMAGE_TAG: latest
         run: |
@@ -58,6 +60,12 @@ jobs:
           frontend:
             image:
               tag: "${IMAGE_TAG}"
+            env:
+              DATABASE_URL: "${DATABASE_URL}"
+              BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET}"
+              BETTER_AUTH_URL: "http://48.192.66.23:3000"
+              GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
+              GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
           ingress:
             enabled: false
           EOF

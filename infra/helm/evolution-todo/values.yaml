@@ -48,6 +48,12 @@ frontend:
       memory: 128Mi
   env:
     NEXT_PUBLIC_API_URL: "http://backend:8000"
+    # Auth env vars (set via CD pipeline secrets)
+    DATABASE_URL: ""
+    BETTER_AUTH_SECRET: ""
+    BETTER_AUTH_URL: ""
+    GOOGLE_CLIENT_ID: ""
+    GOOGLE_CLIENT_SECRET: ""
 
 # Ingress configuration
 ingress:
