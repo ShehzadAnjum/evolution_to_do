@@ -530,7 +530,7 @@ env:
 | GitHub Actions CD | ✅ Active | Auto-deploys on CI success |
 | Azure AKS | ✅ Running | `evo-todo-aks` in westus2 |
 | Helm Chart | ✅ Deployed | `evolution-todo` release |
-| Frontend LB | ✅ Active | http://48.192.66.23:3000 (dynamic IP) |
+| Frontend LB | ✅ Active | http://20.9.188.58:3000 (static IP) |
 
 ---
 

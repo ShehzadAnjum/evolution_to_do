@@ -39,6 +39,7 @@ frontend:
   service:
     type: LoadBalancer  # External access via Azure LB
     port: 3000
+    loadBalancerIP: "20.9.188.58"  # Static Azure Public IP
   resources:
     limits:
       cpu: 300m

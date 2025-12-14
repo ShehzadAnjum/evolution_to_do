@@ -63,7 +63,7 @@ jobs:
             env:
               DATABASE_URL: "${DATABASE_URL}"
               BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET}"
-              BETTER_AUTH_URL: "http://48.192.66.23:3000"
+              BETTER_AUTH_URL: "http://20.9.188.58:3000"
               GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
               GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
           ingress:

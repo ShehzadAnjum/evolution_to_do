@@ -6,6 +6,9 @@ metadata:
     {{- include "evolution-todo.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.frontend.service.type }}
+  {{- if .Values.frontend.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.frontend.service.loadBalancerIP }}
+  {{- end }}
   ports:
     - port: {{ .Values.frontend.service.port }}
       targetPort: http
