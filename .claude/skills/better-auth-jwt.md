@@ -269,8 +269,27 @@ GOOGLE_CLIENT_SECRET=xxx
 | Session not persisting | Check cookie settings |
 | Token expired | Implement token refresh |
 | **Post-login redirect loop on Vercel** | **Check BOTH cookie names in middleware (see below)** |
-| **"Invalid origin" 403 error** | **Add origin explicitly to trustedOrigins (no wildcards!)** |
+| **"Invalid origin" 403 error** | **BETTER_AUTH_URL must EXACTLY match access URL (see below)** |
 | **redirect_uri_mismatch from Google** | **Add exact URI to Google Console, clear browser cache** |
+
+### CRITICAL: BETTER_AUTH_URL Must Match Access URL EXACTLY
+
+**This is the #1 cause of "Invalid origin" errors.**
+
+```bash
+# ❌ WRONG - User accesses via nip.io but env uses IP
+BETTER_AUTH_URL=http://172.171.119.133:3000
+# User visits: http://172.171.119.133.nip.io:3000
+# Result: "Invalid origin" error
+
+# ✅ CORRECT - Env matches how users access the app
+BETTER_AUTH_URL=http://172.171.119.133.nip.io:3000
+```
+
+**K8s/Azure Deployment Rule:**
+- If using nip.io for Google OAuth → set BETTER_AUTH_URL to nip.io domain
+- If using Vercel → set BETTER_AUTH_URL to Vercel domain
+- NEVER use raw IP if users access via domain
 
 ### CRITICAL: trustedOrigins Does NOT Support Wildcards
 
