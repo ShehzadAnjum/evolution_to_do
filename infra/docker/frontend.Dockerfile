@@ -27,6 +27,10 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY frontend/ ./
 
+# Build args for NEXT_PUBLIC_* variables (baked at build time)
+ARG NEXT_PUBLIC_API_URL=http://backend:8000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production

@@ -102,7 +102,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            NEXT_PUBLIC_API_URL=https://api.evolution-todo.com
+            NEXT_PUBLIC_API_URL=http://48.200.16.149:8000
 
   # ================================
   # Summary Job

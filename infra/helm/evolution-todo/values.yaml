@@ -13,7 +13,7 @@ backend:
     tag: latest
     pullPolicy: Always
   service:
-    type: ClusterIP
+    type: LoadBalancer  # External access for browser API calls
     port: 8000
   resources:
     limits:
