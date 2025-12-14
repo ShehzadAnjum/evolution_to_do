@@ -59,6 +59,7 @@ origins.extend([
     "http://127.0.0.1:3001",
     "https://evolution-to-do.vercel.app",
     "https://evolution-todo-v1.vercel.app",  # iteration-1 deployment
+    "http://172.171.119.133.nip.io:3000",    # AKS deployment via nip.io
 ])
 
 app.add_middleware(
