@@ -42,7 +42,8 @@ const authConfig: Parameters<typeof betterAuth>[0] = {
   // Base this on the actual URL scheme, not the environment
   advanced: {
     // Enable secure cookies ONLY if BETTER_AUTH_URL uses HTTPS
-    useSecureCookies: env.BETTER_AUTH_URL.startsWith("https://"),
+    // Default to false (HTTP) if URL is not set
+    useSecureCookies: (env.BETTER_AUTH_URL ?? "http://localhost:3000").startsWith("https://"),
   },
 };
 
