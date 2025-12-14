@@ -282,6 +282,31 @@ gh run list
 gh run view <run-id> --log
 ```
 
+## K8s Deployment Patterns
+
+### Force Pod Restart for `latest` Tag
+
+**Problem**: When using `latest` tag, `helm upgrade` won't restart pods if spec unchanged.
+
+**Solution**: Add explicit rollout restart after helm upgrade:
+
+```yaml
+- name: Deploy with Helm
+  run: |
+    helm upgrade --install myapp ./chart --wait
+
+- name: Force pod restart
+  run: |
+    # Required because 'latest' tag + unchanged spec = no restart
+    kubectl rollout restart deployment/frontend
+    kubectl rollout restart deployment/backend
+
+- name: Verify deployment
+  run: |
+    kubectl rollout status deployment/frontend --timeout=120s
+    kubectl rollout status deployment/backend --timeout=120s
+```
+
 ## Anti-Patterns to Avoid
 
 1. **Don't echo secrets**: Never `echo $SECRET`
@@ -289,9 +314,11 @@ gh run view <run-id> --log
 3. **Don't skip cleanup**: Always remove temp secret files
 4. **Don't use `latest` in production**: Pin action versions
 5. **Don't ignore failures**: Use `fail-fast: true`
+6. **Don't forget rollout restart**: When using `latest` tag with K8s
 
 ## References
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - ADR-010: Azure AKS Cloud Deployment
 - PHR-006: Helm Secrets with Special Characters
+- PHR-007: AKS Auth/CORS Debugging
 - Subagent: cicd-pipeline-subagent.md

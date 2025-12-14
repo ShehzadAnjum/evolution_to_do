@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-14 (Phase V Part C - Azure AKS + RI Update)
+**Last Updated**: 2025-12-14 (Phase V Part C - AKS Auth/CORS Fix)
 **Updated By**: AI Assistant (Claude Code)
 **Current Phase**: Phase V - Cloud Deployment
 **Current Branch**: main
-**Current Version**: 05.10.002
+**Current Version**: 05.10.003
 
 ---
 
@@ -44,14 +44,47 @@
 - **Complete: Phase V Part A** - Advanced Features (search, filter, sort, time, notifications, recurring)
 - **Complete: Phase V Part C** - GitHub Actions CI/CD + Azure AKS Deployment
 
-### Last Session Summary (2025-12-14 Phase V Part C - Azure AKS)
+### Last Session Summary (2025-12-14 AKS Auth/CORS Debugging)
+
+**Issues Fixed (4+ hours debugging):**
+
+1. **Secure Cookies over HTTP** - Root cause of "Please log in to view tasks"
+   - Problem: `useSecureCookies: NODE_ENV === "production"` but AKS uses HTTP
+   - Fix: Changed to `useSecureCookies: BETTER_AUTH_URL.startsWith("https://")`
+   - File: `frontend/lib/auth/core/server.ts:46`
+
+2. **CD Pod Restart** - Images not being pulled on deploy
+   - Problem: `helm upgrade` doesn't restart pods if spec unchanged (using `latest` tag)
+   - Fix: Added `kubectl rollout restart` after helm upgrade
+   - File: `.github/workflows/cd.yml:83-88`
+
+3. **Backend CORS** - Browser blocking cross-origin requests
+   - Problem: nip.io URL not in allowed origins
+   - Fix: Added `http://172.171.119.133.nip.io:3000` to CORS origins
+   - File: `backend/src/api/main.py:62`
+
+**Commits This Session:**
+```
+6a4dcc3 fix(backend): add AKS nip.io URL to CORS allowed origins
+5da6aab fix(cd): force pod restart to pull latest images
+c5888e4 fix(auth): handle optional BETTER_AUTH_URL in TypeScript
+d4a280d fix(auth): disable secure cookies for HTTP deployments (AKS)
+```
+
+**AKS Status:** ✅ FULLY WORKING
+- Frontend: http://172.171.119.133.nip.io:3000 (static IP)
+- Backend: http://48.200.16.149:8000 (dynamic IP, exposed via LoadBalancer)
+- Auth: Login works (password + Google OAuth)
+- Tasks: CRUD operations working
+
+### Previous Session (2025-12-14 Phase V Part C - Azure AKS)
 
 **Cloud Infrastructure Deployed:**
 - GitHub Actions CI: Builds Docker images on push to main
 - GHCR: Images pushed to ghcr.io/shehzadanjum/evolution_to_do/{backend,frontend}
 - Azure AKS: Cluster in westus2 (1 node, Standard_B2s_v2)
 - Helm Chart: evolution-todo deployed successfully
-- CD Workflow: Auto-deploy on CI success (needs secrets configured)
+- CD Workflow: Auto-deploy on CI success
 
 **Resources Created:**
 | Resource | Details |
@@ -233,6 +266,17 @@ const sortedTasks = useMemo(() => {
 
 ## Key Lessons Learned
 
+### AKS/K8s Deployment Issues (2025-12-14)
+
+| Issue | Root Cause | Solution |
+|-------|------------|----------|
+| "Please log in" after login | `useSecureCookies` based on NODE_ENV | Base on URL scheme: `BETTER_AUTH_URL.startsWith("https://")` |
+| Pods not pulling new images | `latest` tag + unchanged spec = no restart | Add `kubectl rollout restart` to CD |
+| "Cannot connect to backend" | CORS blocking nip.io origin | Add frontend URL to backend CORS origins |
+| BETTER_AUTH_URL undefined | TypeScript optional property | Use nullish coalescing: `env.BETTER_AUTH_URL ?? "http://localhost:3000"` |
+
+### Audio/Notifications (Phase V Part A)
+
 | Issue | Solution |
 |-------|----------|
 | AudioContext limit | Reuse single shared instance |
@@ -260,9 +304,9 @@ const sortedTasks = useMemo(() => {
 | Frontend (v2) | Vercel | https://evolution-to-do.vercel.app | Live |
 | Backend | Railway | https://evolutiontodo-production-e1b6.up.railway.app | Live |
 | Database | Neon | PostgreSQL (v2.0.0 schema) | Connected |
-| **Frontend (K8s)** | Azure AKS | http://172.171.119.133.nip.io:3000 (static IP + nip.io) | Live |
-| **Backend (K8s)** | Azure AKS | ClusterIP (internal only) | Running |
-| CI/CD | GitHub Actions | Push → Build → Deploy | Active |
+| **Frontend (AKS)** | Azure AKS | http://172.171.119.133.nip.io:3000 | ✅ Live |
+| **Backend (AKS)** | Azure AKS | http://48.200.16.149:8000 (LoadBalancer) | ✅ Live |
+| CI/CD | GitHub Actions | Push → Build → Deploy → Restart | ✅ Active |
 
 ---
 

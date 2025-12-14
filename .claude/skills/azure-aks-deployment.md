@@ -185,6 +185,43 @@ infra/helm/myapp/
 | Image pull fails | Make GHCR packages public or add imagePullSecret |
 | Secrets empty | Use values file instead of `--set` for URLs |
 | Pod CrashLoopBackOff | Check logs: `kubectl logs <pod> --previous` |
+| **Pods not pulling new `latest` image** | Add `kubectl rollout restart` to CD (see below) |
+| **"Please log in" after login (HTTP)** | Set `useSecureCookies` based on URL scheme, not NODE_ENV |
+| **"Cannot connect to backend" (CORS)** | Add frontend URL to backend CORS allowed origins |
+
+### CRITICAL: Force Pod Restart for `latest` Tag
+
+When using `latest` tag with unchanged deployment spec, K8s won't restart pods:
+
+```yaml
+# Add to CD workflow AFTER helm upgrade
+- name: Force pod restart to pull latest images
+  run: |
+    kubectl rollout restart deployment/frontend
+    kubectl rollout restart deployment/backend
+```
+
+### CRITICAL: Secure Cookies and HTTP
+
+If your AKS deployment uses HTTP (no TLS), don't base cookie security on NODE_ENV:
+
+```typescript
+// ❌ WRONG - AKS uses HTTP but NODE_ENV=production
+useSecureCookies: process.env.NODE_ENV === "production"
+
+// ✅ CORRECT - Base on actual URL scheme
+useSecureCookies: BETTER_AUTH_URL.startsWith("https://")
+```
+
+### CRITICAL: Add Deployment URL to CORS
+
+Backend must allow requests from frontend URL:
+
+```python
+origins.extend([
+    "http://172.171.119.133.nip.io:3000",  # AKS frontend URL
+])
+```
 
 ## Cost Optimization
 
@@ -218,4 +255,6 @@ kubectl run curl --image=curlimages/curl --rm -it --restart=Never -- curl http:/
 ## Related
 - ADR-010: Azure AKS Cloud Deployment
 - PHR-006: Helm Secrets with Special Characters
+- PHR-007: AKS Auth/CORS Debugging
 - Skill: docker-minikube.md (local K8s)
+- Skill: better-auth-jwt.md (secure cookies)
