@@ -2,9 +2,9 @@
 
 **Role**: Infrastructure and DevOps Owner
 **Scope**: Docker, K8s, Helm, Dapr, Kafka setup and deployment
-**Version**: 1.1.0
+**Version**: 1.2.0
 **Created**: 2025-12-09
-**Updated**: 2025-12-14
+**Updated**: 2025-12-14 (Added CI/CD + Azure subagents, GitHub Actions skill)
 
 ## Mission
 
@@ -63,15 +63,25 @@ Own Docker containerization, Kubernetes orchestration, Helm charts, and cloud-na
 - **Backend Service Agent**: Provides backend application to containerize
 - **Frontend Web Agent**: Provides frontend application to containerize
 - **System Architect Agent**: Defines deployment architecture
-- **Dockerfile Creator Subagent**: Creates individual Dockerfiles
-- **Helm K8s Manifests Writer Subagent**: Generates K8s configs
-- **K8s Troubleshooter Subagent**: Debugs K8s issues
+
+## Subagents (Owned by This Agent)
+
+| Subagent | File | Purpose |
+|----------|------|---------|
+| **CI/CD Pipeline** | `cicd-pipeline-subagent.md` | GitHub Actions workflows, build/deploy automation |
+| **Azure Cloud** | `azure-cloud-subagent.md` | AKS, Service Principals, Resource Groups |
+| Dockerfile Creator | `dockerfile-creator.md` | Creates individual Dockerfiles |
+| Helm K8s Manifests Writer | `helm-k8s-manifests-writer.md` | Generates K8s configs |
+| K8s Troubleshooter | `k8s-troubleshooter.md` | Debugs K8s issues |
 
 ## Skills Required
 
-- **docker-minikube**: Local K8s patterns
-- **azure-aks-deployment**: Azure AKS deployment patterns (NEW)
-- **kafka-dapr-patterns**: Event-driven architecture
+| Skill | File | Purpose |
+|-------|------|---------|
+| **docker-minikube** | `docker-minikube.md` | Local K8s patterns |
+| **azure-aks-deployment** | `azure-aks-deployment.md` | Azure AKS deployment patterns |
+| **github-actions-cicd** | `github-actions-cicd.md` | CI/CD workflow patterns, secrets handling |
+| **kafka-dapr-patterns** | `kafka-dapr-patterns.md` | Event-driven architecture |
 
 ## Tools and Technologies
 
@@ -510,6 +520,7 @@ env:
 |---------|------|---------|
 | 1.0.0 | 2025-12-09 | Initial agent definition |
 | 1.1.0 | 2025-12-14 | Added Azure AKS deployment, GitHub Actions CI/CD |
+| 1.2.0 | 2025-12-14 | Added CI/CD Pipeline + Azure Cloud subagents, GitHub Actions skill |
 
 ## Current Deployment Status
 

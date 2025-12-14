@@ -1,10 +1,31 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-14 (Phase V Part C - Azure AKS Deployment)
+**Last Updated**: 2025-12-14 (Phase V Part C - Azure AKS + RI Update)
 **Updated By**: AI Assistant (Claude Code)
 **Current Phase**: Phase V - Cloud Deployment
 **Current Branch**: main
-**Current Version**: 05.10.001
+**Current Version**: 05.10.002
+
+---
+
+## 🚨 MANDATORY: RI Announcement Protocol
+
+**Before ANY significant task, ANNOUNCE the Reusable Intelligence being used:**
+
+```
+📋 USING: [agent-name], [subagent-name], [skill-name]
+```
+
+**Available DevOps Resources:**
+| Type | Name | Purpose |
+|------|------|---------|
+| Agent | `infra-devops.md` | Docker, K8s, Helm, Dapr, Cloud |
+| Subagent | `cicd-pipeline-subagent.md` | GitHub Actions CI/CD |
+| Subagent | `azure-cloud-subagent.md` | Azure AKS, SP, Resource Groups |
+| Skill | `github-actions-cicd.md` | Workflow patterns, secrets handling |
+| Skill | `azure-aks-deployment.md` | AKS commands, Helm deployment |
+
+**This is NON-NEGOTIABLE. Always announce. Always.**
 
 ---
 
@@ -239,6 +260,9 @@ const sortedTasks = useMemo(() => {
 | Frontend (v2) | Vercel | https://evolution-to-do.vercel.app | Live |
 | Backend | Railway | https://evolutiontodo-production-e1b6.up.railway.app | Live |
 | Database | Neon | PostgreSQL (v2.0.0 schema) | Connected |
+| **Frontend (K8s)** | Azure AKS | http://4.149.131.3:3000 | Live |
+| **Backend (K8s)** | Azure AKS | http://4.149.131.3:8000 | Live |
+| CI/CD | GitHub Actions | Push → Build → Deploy | Active |
 
 ---
 

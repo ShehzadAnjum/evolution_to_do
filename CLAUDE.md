@@ -23,6 +23,69 @@
 
 ---
 
+## 🚨 MANDATORY: Reusable Intelligence Announcement Protocol
+
+**Constitution Principle IX requires this. Violation is a constitutional breach.**
+
+### Before ANY Significant Task, ANNOUNCE:
+
+```
+📋 USING: [agent-name], [subagent-name], [skill-name]
+
+[Then proceed with the task...]
+```
+
+### Example Announcements:
+
+```
+📋 USING: infra-devops agent, cicd-pipeline-subagent, github-actions-cicd skill
+
+I'm about to create the CI/CD workflow...
+```
+
+```
+📋 USING: backend-service agent, api-endpoint-implementer subagent
+
+I'm implementing the new API endpoint...
+```
+
+### When to Announce:
+- Before implementing any feature
+- Before debugging any issue
+- Before creating/modifying infrastructure
+- Before any multi-step task
+
+### When Creating/Modifying RI Artifacts:
+
+```
+📋 CREATING: new subagent `name.md`
+[or]
+📋 MODIFYING: skill `name.md` - adding [description]
+
+[Ask for permission if modifying existing artifacts]
+```
+
+### Available Reusable Intelligence:
+
+**Agents** (`.claude/agents/`):
+- system-architect, backend-service, frontend-web, auth-security
+- ai-mcp, infra-devops, testing-quality, docs-demo, vercel-deployment
+
+**Subagents** (`.claude/subagents/`):
+- cicd-pipeline-subagent, azure-cloud-subagent, k8s-troubleshooter
+- dockerfile-creator, helm-k8s-manifests-writer, git-hygiene-subagent
+- api-endpoint-implementer, db-schema-migration-specialist, test-generator
+- (and more...)
+
+**Skills** (`.claude/skills/`):
+- github-actions-cicd, azure-aks-deployment, docker-minikube
+- neon-sqlmodel, better-auth-jwt, voice-chat-bilingual
+- (and more...)
+
+**This is NON-NEGOTIABLE. Always announce. Always.**
+
+---
+
 ## 📁 Project Structure
 
 This is a **monorepo** following **Spec-Driven Development** with **Reusable Intelligence**.
