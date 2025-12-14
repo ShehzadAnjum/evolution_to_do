@@ -43,7 +43,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          IMAGE_TAG: ${{ github.sha }}
+          # Use short SHA (7 chars) to match CI image tags, or 'latest'
+          IMAGE_TAG: latest
         run: |
           # Create values file with secrets (use env vars to avoid shell escaping issues)
           cat > /tmp/secrets-values.yaml << EOF
