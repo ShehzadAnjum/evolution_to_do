@@ -34,13 +34,15 @@ const authConfig: Parameters<typeof betterAuth>[0] = {
     env.BETTER_AUTH_URL,
     "https://evolution-to-do.vercel.app",
     "https://iteration1-evolution-todo.vercel.app", // iteration-1 stable alias
+    "http://172.171.119.133.nip.io:3000", // AKS deployment via nip.io
   ].filter(Boolean) as string[],
-  // Production OAuth configuration for Vercel
-  // Note: Better Auth v1.4.5 handles cookie security automatically based on NODE_ENV
-  // In production (HTTPS), cookies are automatically secure and httpOnly
+  // Cookie security configuration
+  // IMPORTANT: Secure cookies MUST only be enabled for HTTPS connections
+  // Using NODE_ENV alone is wrong - AKS uses HTTP but NODE_ENV=production
+  // Base this on the actual URL scheme, not the environment
   advanced: {
-    // Enable secure cookies in production
-    useSecureCookies: process.env.NODE_ENV === "production",
+    // Enable secure cookies ONLY if BETTER_AUTH_URL uses HTTPS
+    useSecureCookies: env.BETTER_AUTH_URL.startsWith("https://"),
   },
 };
 

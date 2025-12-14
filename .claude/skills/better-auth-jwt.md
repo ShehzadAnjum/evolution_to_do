@@ -310,6 +310,36 @@ trustedOrigins: [
 ERROR [Better Auth]: Invalid origin: https://your-app.vercel.app
 ```
 
+### CRITICAL: useSecureCookies Must Match URL Scheme
+
+**Never base `useSecureCookies` on `NODE_ENV` alone!**
+
+```typescript
+// ❌ WRONG - AKS uses HTTP but NODE_ENV=production
+advanced: {
+  useSecureCookies: process.env.NODE_ENV === "production",
+}
+
+// ✅ CORRECT - Base on actual URL scheme
+advanced: {
+  useSecureCookies: env.BETTER_AUTH_URL.startsWith("https://"),
+}
+```
+
+**Why this matters:**
+1. AKS deployment runs in production mode (`NODE_ENV=production`)
+2. But accessed via HTTP (`http://172.171.119.133.nip.io:3000`)
+3. `useSecureCookies: true` → cookies marked as `Secure`
+4. Browser refuses to send `Secure` cookies over HTTP
+5. `/api/auth/token` receives no session cookie → returns 401
+6. User sees "Please log in" despite being logged in
+
+**Symptoms:**
+- Login succeeds (session created)
+- Immediately after: "Please log in to view tasks"
+- HAR file shows NO backend API calls
+- `/api/auth/token` returns 401
+
 ### CRITICAL: Secure Cookie Names in Production
 
 **This fix saved 8+ hours of debugging.**
