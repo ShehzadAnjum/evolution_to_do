@@ -1,0 +1,36 @@
+# Redpanda Cloud pub/sub component for production Kafka
+# Requires REDPANDA_BROKERS, REDPANDA_USERNAME, REDPANDA_PASSWORD secrets
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: taskevents
+  namespace: evolution-todo
+spec:
+  type: pubsub.kafka
+  version: v1
+  metadata:
+    - name: brokers
+      secretKeyRef:
+        name: redpanda-credentials
+        key: brokers
+    - name: authType
+      value: "password"
+    - name: saslUsername
+      secretKeyRef:
+        name: redpanda-credentials
+        key: username
+    - name: saslPassword
+      secretKeyRef:
+        name: redpanda-credentials
+        key: password
+    - name: saslMechanism
+      value: "SCRAM-SHA-256"
+    - name: initialOffset
+      value: "oldest"
+    - name: consumerGroup
+      value: "evolution-todo-group"
+    - name: clientID
+      value: "evolution-todo"
+    # TLS for Redpanda Cloud
+    - name: disableTls
+      value: "false"

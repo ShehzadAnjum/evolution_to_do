@@ -1,0 +1,11 @@
+# In-memory pub/sub for demo/testing (when Redpanda not configured)
+# This allows Dapr events to work without external Kafka
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: taskevents
+  namespace: evolution-todo
+spec:
+  type: pubsub.in-memory
+  version: v1
+  metadata: []

@@ -1,0 +1,21 @@
+# PostgreSQL state store using Neon database
+# Reuses the existing DATABASE_URL from application secrets
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: statestore
+  namespace: evolution-todo
+spec:
+  type: state.postgresql
+  version: v1
+  metadata:
+    - name: connectionString
+      secretKeyRef:
+        name: evolution-todo-secrets
+        key: database-url
+    - name: tableName
+      value: "dapr_state"
+    - name: keyPrefix
+      value: "name"
+    - name: cleanupIntervalInSeconds
+      value: "3600"

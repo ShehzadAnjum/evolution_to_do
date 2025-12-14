@@ -38,6 +38,63 @@ jobs:
         with:
           version: 'latest'
 
+      - name: Install Dapr on AKS
+        run: |
+          # Check if Dapr is already installed
+          if ! kubectl get namespace dapr-system > /dev/null 2>&1; then
+            echo "Installing Dapr on AKS..."
+            # Add Dapr Helm repo
+            helm repo add dapr https://dapr.github.io/helm-charts/
+            helm repo update
+            # Install Dapr
+            helm upgrade --install dapr dapr/dapr \
+              --namespace dapr-system \
+              --create-namespace \
+              --wait \
+              --timeout 5m
+            echo "Dapr installed successfully"
+          else
+            echo "Dapr already installed, upgrading..."
+            helm repo add dapr https://dapr.github.io/helm-charts/
+            helm repo update
+            helm upgrade dapr dapr/dapr \
+              --namespace dapr-system \
+              --wait \
+              --timeout 5m
+          fi
+
+          # Verify Dapr installation
+          kubectl get pods -n dapr-system
+
+      - name: Deploy Dapr Components
+        env:
+          REDPANDA_BROKERS: ${{ secrets.REDPANDA_BROKERS }}
+          REDPANDA_USERNAME: ${{ secrets.REDPANDA_USERNAME }}
+          REDPANDA_PASSWORD: ${{ secrets.REDPANDA_PASSWORD }}
+        run: |
+          # Create namespace if not exists
+          kubectl create namespace evolution-todo --dry-run=client -o yaml | kubectl apply -f -
+
+          # Apply Dapr components
+          if [ -n "$REDPANDA_BROKERS" ]; then
+            echo "Configuring Dapr with Redpanda Cloud..."
+            # Create secret for Redpanda credentials
+            kubectl create secret generic redpanda-credentials \
+              --namespace evolution-todo \
+              --from-literal=username="${REDPANDA_USERNAME}" \
+              --from-literal=password="${REDPANDA_PASSWORD}" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+            # Apply Redpanda pubsub component
+            kubectl apply -f infra/dapr/cloud/pubsub-redpanda.yaml
+          else
+            echo "Redpanda not configured, using in-memory pub/sub for demo..."
+            kubectl apply -f infra/dapr/cloud/pubsub-memory.yaml
+          fi
+
+          # Apply state store (PostgreSQL via Neon)
+          kubectl apply -f infra/dapr/cloud/statestore.yaml
+
       - name: Deploy with Helm
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

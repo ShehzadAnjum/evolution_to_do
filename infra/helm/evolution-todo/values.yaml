@@ -86,3 +86,7 @@ healthCheck:
   initialDelaySeconds: 10
   periodSeconds: 30
   timeoutSeconds: 5
+
+# Dapr configuration
+dapr:
+  enabled: true  # Enable Dapr sidecars for event-driven architecture

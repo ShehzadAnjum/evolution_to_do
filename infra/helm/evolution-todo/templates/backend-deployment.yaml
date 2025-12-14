@@ -14,6 +14,13 @@ spec:
     metadata:
       labels:
         {{- include "evolution-todo.backend.selectorLabels" . | nindent 8 }}
+      {{- if .Values.dapr.enabled }}
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "backend"
+        dapr.io/app-port: "{{ .Values.backend.service.port }}"
+        dapr.io/enable-api-logging: "true"
+      {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -44,6 +51,12 @@ spec:
                   name: {{ include "evolution-todo.fullname" . }}-secrets
                   key: openai-api-key
                   optional: true
+            {{- if .Values.dapr.enabled }}
+            - name: DAPR_ENABLED
+              value: "true"
+            - name: DAPR_HTTP_PORT
+              value: "3500"
+            {{- end }}
           {{- if .Values.healthCheck.enabled }}
           livenessProbe:
             httpGet:
