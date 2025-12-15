@@ -91,3 +91,10 @@ research/__pycache__/
 
 .vercel
 .env*.local
+
+# IoT credentials (never commit)
+iot/esp32/config.h
+
+# Windows Zone.Identifier metadata files
+*.Zone.Identifier
+*:Zone.Identifier

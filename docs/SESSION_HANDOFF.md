@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-14 (Hackathon Completion - Dapr + Cloud-Native Blueprint)
+**Last Updated**: 2025-12-16 (Capstone Documents + Cleanup + IoT Prototype)
 **Updated By**: AI Assistant (Claude Code)
-**Current Phase**: Phase V - COMPLETE
+**Current Phase**: Phase V - COMPLETE (All Phases Done)
 **Current Branch**: main
-**Current Version**: 05.10.004
+**Current Version**: 05.10.005
 
 ---
 
@@ -45,8 +45,38 @@
 - **Complete: Phase V Part C** - GitHub Actions CI/CD + Azure AKS Deployment
 - **Complete: Cloud Dapr** - Dapr sidecar + Pub/Sub (Redpanda/in-memory) + State Store
 - **Complete: Cloud-Native Blueprint** - Reusable Intelligence skill (+200 bonus points)
+- **Complete: Capstone Documents** - Phase III, IV, V capstones created
+- **Parked: IoT Prototype** - ESP32 MQTT relay controller (tested, working)
 
-### Last Session Summary (2025-12-14 Hackathon Completion)
+### Last Session Summary (2025-12-16 Capstone + Cleanup + IoT)
+
+**Capstone Documents Created:**
+- `specs/phases/phase-3-capstone.md` - AI Chatbot + MCP Tools validation
+- `specs/phases/phase-4-capstone.md` - Local K8s (Docker + Helm) validation
+- `specs/phases/phase-5-capstone.md` - Cloud + Advanced Features validation
+- All capstones validate implementation against spec, plan, and constitution
+
+**Project Cleanup:**
+- Created `.env.local.example` with placeholder values for easy setup
+- Updated `.gitignore` to exclude Windows Zone.Identifier metadata files
+- Archived `I2-phase1-thoughts.md` to `history/archived/`
+- Removed debug files (sc.png, HAR files, firebase-debug.log)
+- Added `ScreenShots/` folder with hardware photos for presentation
+
+**IoT Prototype (Parked for Later):**
+- Created `iot/` folder with ESP32 MQTT relay controller
+- Tested successfully with HiveMQ Cloud broker
+- Hardware: ESP32-S3 + 4-port relay board + I2C 16x2 LCD
+- Features: WiFi + MQTT + Schedule storage + Active LOW relays
+- Status: Working prototype, parked for future demo
+
+**Key Findings:**
+- Zone.Identifier files: Windows NTFS metadata (can be ignored)
+- Capstones: NOT required by hackathon, but useful for validation
+
+---
+
+### Previous Session (2025-12-14 Hackathon Completion)
 
 **Dapr Cloud Deployment:**
 - Installed Dapr on AKS via Helm (dapr-system namespace)
@@ -63,7 +93,7 @@
 - Location: `.claude/skills/cloud-native-blueprint.md`
 - Value: +200 hackathon bonus points
 
-**Commits This Session:**
+**Commits:**
 ```
 0ca33ab feat(dapr): add cloud-native Dapr deployment with Redpanda pub/sub
 ```
