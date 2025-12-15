@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatKitInterface } from "@/components/chat";
+import { ChatInterface } from "@/components/chat";
 import { SignOutButton } from "@/app/dashboard/SignOutButton";
 import Link from "next/link";
 
@@ -8,19 +8,19 @@ import Link from "next/link";
  * Chat page for Phase III AI Chatbot.
  *
  * Provides a chat interface for users to interact with the
- * AI task management assistant using ChatKit UI components.
+ * AI task management assistant.
  */
 export default function ChatPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-8">
+      <div className="max-w-3xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
               Task Assistant
             </h1>
-            <p className="text-muted-foreground text-sm mt-1">
+            <p className="text-muted-foreground mt-1">
               Chat with AI to manage your tasks
             </p>
           </div>
@@ -35,16 +35,19 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* ChatKit Interface */}
-        <div className="border rounded-lg shadow-sm overflow-hidden">
-          <ChatKitInterface />
-        </div>
+        {/* Chat Interface */}
+        <ChatInterface
+          onConversationCreated={(id) => {
+            // Could update URL or store conversation ID
+            console.log("New conversation created:", id);
+          }}
+        />
 
         {/* Help text */}
         <div className="mt-4 text-center text-sm text-muted-foreground">
           <p>
             Try: &quot;Add a task&quot;, &quot;Show my tasks&quot;, or &quot;Mark
-            task as complete&quot; | Also supports Urdu: اردو میں بھی بات کریں
+            task as complete&quot;
           </p>
         </div>
       </div>

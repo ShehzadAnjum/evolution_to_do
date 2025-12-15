@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-16 (Capstone Documents + Cleanup + IoT Prototype)
+**Last Updated**: 2025-12-16 (ChatKit Implementation + Skills Migration)
 **Updated By**: AI Assistant (Claude Code)
 **Current Phase**: Phase V - COMPLETE (All Phases Done)
 **Current Branch**: main
-**Current Version**: 05.10.005
+**Current Version**: 05.10.006
 
 ---
 
@@ -13,10 +13,10 @@
 **Before ANY significant task, ANNOUNCE the Reusable Intelligence being used:**
 
 ```
-📋 USING: [agent-name], [subagent-name], [skill-name]
+📋 USING: [agent-name], [subagent-name], [skill-name], [mcp-server-name]
 ```
 
-**Available DevOps Resources:**
+**Available Resources:**
 | Type | Name | Purpose |
 |------|------|---------|
 | Agent | `infra-devops.md` | Docker, K8s, Helm, Dapr, Cloud |
@@ -24,8 +24,9 @@
 | Subagent | `azure-cloud-subagent.md` | Azure AKS, SP, Resource Groups |
 | Skill | `github-actions-cicd.md` | Workflow patterns, secrets handling |
 | Skill | `azure-aks-deployment.md` | AKS commands, Helm deployment |
+| **MCP Server** | `context7` | Library documentation fetcher |
 
-**This is NON-NEGOTIABLE. Always announce. Always.**
+**This is NON-NEGOTIABLE. Always announce. Always (including MCP servers).**
 
 ---
 
@@ -48,31 +49,52 @@
 - **Complete: Capstone Documents** - Phase III, IV, V capstones created
 - **Parked: IoT Prototype** - ESP32 MQTT relay controller (tested, working)
 
-### Last Session Summary (2025-12-16 Capstone + Cleanup + IoT)
+### Last Session Summary (2025-12-16 ChatKit + Skills Migration)
+
+**ChatKit Implementation:**
+- Installed `@chatscope/chat-ui-kit-react` and styles
+- Created `ChatKitInterface` component with:
+  - Sidebar with conversation list
+  - Message list with typing indicator
+  - Message input with ChatKit components
+  - Conversation history loading on mount
+- Created API routes for conversation management
+- Archived old chat implementation to `history/archived/chat-v1-shadcn/`
+
+**Skills Migration (Anthropic Official Format):**
+- Migrated 16 skills to Anthropic's official folder + SKILL.md format
+- Each skill now has: `skill-name/SKILL.md` with YAML frontmatter
+- Archived old skills to `history/archived/skills-v1/`
+- Added `README.md` explaining skills structure
+
+**RI Protocol Updated:**
+- Added MCP servers to announcement protocol
+- Example: `📋 USING: context7 MCP server`
+
+**Capstone Corrections:**
+- Fixed Phase III capstone to show ChatKit as PENDING
+- Updated technology compliance section
+
+**Safety Checkpoint:** `v5.10.005-pre-chatkit` (can revert if needed)
+
+---
+
+### Previous Session (2025-12-16 Capstone + Cleanup + IoT)
 
 **Capstone Documents Created:**
 - `specs/phases/phase-3-capstone.md` - AI Chatbot + MCP Tools validation
 - `specs/phases/phase-4-capstone.md` - Local K8s (Docker + Helm) validation
 - `specs/phases/phase-5-capstone.md` - Cloud + Advanced Features validation
-- All capstones validate implementation against spec, plan, and constitution
 
 **Project Cleanup:**
-- Created `.env.local.example` with placeholder values for easy setup
-- Updated `.gitignore` to exclude Windows Zone.Identifier metadata files
-- Archived `I2-phase1-thoughts.md` to `history/archived/`
-- Removed debug files (sc.png, HAR files, firebase-debug.log)
-- Added `ScreenShots/` folder with hardware photos for presentation
+- Created `.env.local.example` with placeholder values
+- Updated `.gitignore` for Zone.Identifier files
+- Archived `I2-phase1-thoughts.md`
+- Added `ScreenShots/` folder for presentation
 
-**IoT Prototype (Parked for Later):**
-- Created `iot/` folder with ESP32 MQTT relay controller
-- Tested successfully with HiveMQ Cloud broker
-- Hardware: ESP32-S3 + 4-port relay board + I2C 16x2 LCD
-- Features: WiFi + MQTT + Schedule storage + Active LOW relays
-- Status: Working prototype, parked for future demo
-
-**Key Findings:**
-- Zone.Identifier files: Windows NTFS metadata (can be ignored)
-- Capstones: NOT required by hackathon, but useful for validation
+**IoT Prototype (Parked):**
+- ESP32 MQTT relay controller working with HiveMQ Cloud
+- Status: Parked for future demo
 
 ---
 

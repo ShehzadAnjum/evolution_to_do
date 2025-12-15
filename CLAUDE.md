@@ -30,7 +30,7 @@
 ### Before ANY Significant Task, ANNOUNCE:
 
 ```
-📋 USING: [agent-name], [subagent-name], [skill-name]
+📋 USING: [agent-name], [subagent-name], [skill-name], [mcp-server-name]
 
 [Then proceed with the task...]
 ```
@@ -49,11 +49,24 @@ I'm about to create the CI/CD workflow...
 I'm implementing the new API endpoint...
 ```
 
+```
+📋 USING: context7 MCP server
+
+I'm fetching documentation for ChatKit library...
+```
+
+```
+📋 USING: frontend-web agent, chatkit-integration skill, context7 MCP server
+
+I'm implementing the chat interface with ChatKit...
+```
+
 ### When to Announce:
 - Before implementing any feature
 - Before debugging any issue
 - Before creating/modifying infrastructure
 - Before any multi-step task
+- **Before using any MCP server for documentation, code search, or external tools**
 
 ### When Creating/Modifying RI Artifacts:
 
@@ -81,6 +94,10 @@ I'm implementing the new API endpoint...
 - github-actions-cicd, azure-aks-deployment, docker-minikube
 - neon-sqlmodel, better-auth-jwt, voice-chat-bilingual
 - (and more...)
+
+**MCP Servers** (external tools via Model Context Protocol):
+- context7 - Library documentation fetcher (ChatKit, React, etc.)
+- (add more as configured in claude_desktop_config.json or .mcp.json)
 
 **This is NON-NEGOTIABLE. Always announce. Always.**
 
