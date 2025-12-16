@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Task, Priority, Category, CategoryCreate } from "@/lib/types";
+import { TaskStats } from "./task-stats";
 
 export type FilterView = "all" | "today" | "upcoming" | "completed";
 export type CategoryFilter = "all" | "work" | "personal" | "study" | "shopping" | "general" | string;
@@ -50,40 +51,6 @@ const PRIORITY_OPTIONS: { value: PriorityFilter; label: string; icon: string }[]
   { value: "low", label: "Low", icon: "🟢" },
 ];
 
-// Calculate stats from tasks
-function getStats(tasks: Task[]) {
-  const today = new Date();
-  // Use local date string (YYYY-MM-DD) to avoid timezone issues
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  const todayStr = `${year}-${month}-${day}`;
-
-  // Calculate date 3 days from now
-  const threeDaysLater = new Date(today);
-  threeDaysLater.setDate(threeDaysLater.getDate() + 3);
-  const y3 = threeDaysLater.getFullYear();
-  const m3 = String(threeDaysLater.getMonth() + 1).padStart(2, '0');
-  const d3 = String(threeDaysLater.getDate()).padStart(2, '0');
-  const threeDaysStr = `${y3}-${m3}-${d3}`;
-
-  const total = tasks.length;
-  const completed = tasks.filter(t => t.is_complete).length;
-  const todayTasks = tasks.filter(t => t.due_date === todayStr && !t.is_complete).length;
-  const upcoming = tasks.filter(t => {
-    if (!t.due_date || t.is_complete) return false;
-    // Due within next 3 days (excluding today, including overdue)
-    return t.due_date > todayStr && t.due_date <= threeDaysStr;
-  }).length;
-  const overdue = tasks.filter(t => {
-    if (!t.due_date || t.is_complete) return false;
-    // Compare dates as strings (YYYY-MM-DD format)
-    return t.due_date < todayStr;
-  }).length;
-
-  return { total, completed, todayTasks, upcoming, overdue };
-}
-
 const EMOJI_OPTIONS = ["📁", "🎯", "💡", "🎨", "🏃", "📖", "🎵", "✈️", "🍔", "💰", "🏠", "❤️"];
 
 export function Sidebar({
@@ -98,7 +65,6 @@ export function Sidebar({
   onAddCategory,
   isLoadingCategories = false,
 }: SidebarProps) {
-  const stats = getStats(tasks);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryIcon, setNewCategoryIcon] = useState("📁");
@@ -133,29 +99,8 @@ export function Sidebar({
 
       {/* Scrollable content - hidden scrollbar */}
       <div className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-hide">
-        {/* Quick Stats - Compact */}
-        <div className="flex flex-wrap gap-1.5">
-          <div className="bg-secondary/50 rounded-md px-2 py-1 text-center min-w-[52px]">
-            <div className="text-sm font-semibold text-foreground">{stats.total}</div>
-            <div className="text-[10px] text-muted-foreground">Total</div>
-          </div>
-          <div className="bg-secondary/50 rounded-md px-2 py-1 text-center min-w-[52px]">
-            <div className="text-sm font-semibold text-green-600 dark:text-green-400">{stats.completed}</div>
-            <div className="text-[10px] text-muted-foreground">Done</div>
-          </div>
-          <div className="bg-secondary/50 rounded-md px-2 py-1 text-center min-w-[52px]">
-            <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">{stats.todayTasks}</div>
-            <div className="text-[10px] text-muted-foreground">Today</div>
-          </div>
-          <div className="bg-secondary/50 rounded-md px-2 py-1 text-center min-w-[52px]">
-            <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">{stats.upcoming}</div>
-            <div className="text-[10px] text-muted-foreground">Next 3 Days</div>
-          </div>
-          <div className="bg-secondary/50 rounded-md px-2 py-1 text-center min-w-[52px]">
-            <div className="text-sm font-semibold text-red-600 dark:text-red-400">{stats.overdue}</div>
-            <div className="text-[10px] text-muted-foreground">Overdue</div>
-          </div>
-        </div>
+        {/* Task Stats with Donut Chart */}
+        <TaskStats tasks={tasks} />
 
         {/* View Filters */}
         <div className="space-y-1">

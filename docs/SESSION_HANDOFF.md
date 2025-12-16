@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-16 (ChatKit Implementation + Skills Migration)
+**Last Updated**: 2025-12-16 (React Query Caching + Task Visualization)
 **Updated By**: AI Assistant (Claude Code)
 **Current Phase**: Phase V - COMPLETE (All Phases Done)
 **Current Branch**: main
-**Current Version**: 05.10.006
+**Current Version**: 05.10.007
 
 ---
 
@@ -49,7 +49,47 @@
 - **Complete: Capstone Documents** - Phase III, IV, V capstones created
 - **Parked: IoT Prototype** - ESP32 MQTT relay controller (tested, working)
 
-### Last Session Summary (2025-12-16 ChatKit + Skills Migration)
+### Last Session Summary (2025-12-16 React Query Caching + Task Visualization)
+
+**React Query Chat Caching:**
+- Installed `@tanstack/react-query` and `@tanstack/react-query-persist-client`
+- Created `QueryProvider` with localStorage persistence (30 min cache)
+- Created custom hooks: `useConversations`, `useConversationMessages`, `useDeleteMessage`
+- Refactored `chatkit-panel.tsx` to use React Query for stale-while-revalidate UX
+- Chat history now loads instantly from cache, syncs in background
+
+**AI Intent Detection (Priority + Recurrence):**
+- Backend: Added RULE 7 (priority inference) and RULE 8 (recurrence inference) to system prompt
+- Detects "important", "urgent" → High priority
+- Detects "har rouz", "har jumma", "every friday", "every month" → recurrence_pattern
+- Updated `tool_executor.py` and `server.py` for recurrence support
+
+**Chat UX Improvements:**
+- Copy/Delete buttons on messages (hover to reveal)
+- Delete confirmation dialog with loading state ("Deleting...")
+- Preload chat history on page mount (background loading)
+- Loading indicator in main header ("⏳ Loading chat history..." → "✓ Chat loaded")
+- Auto-expand most recent conversation
+- Wider chat panel (1.5x), taller input (2x height)
+- Tasks pane shifts left when chat is open
+
+**Task Visualization (Recharts):**
+- Installed `recharts` library
+- Created `TaskStats` component with:
+  - Donut chart showing completed vs pending (% in center)
+  - Status cards: Due Today, Overdue
+  - Priority breakdown bars (High/Medium/Low)
+- Integrated into Sidebar, replacing old quick stats
+
+**Bug Fixes:**
+- Created missing `/api/chat/conversations/[id]/messages/[messageId]/route.ts` (delete was 404)
+- Fixed temp message ID detection for local-only deletes
+
+**Safety Checkpoint:** `v5.10.006-pre-react-query` (can revert if needed)
+
+---
+
+### Previous Session (2025-12-16 ChatKit + Skills Migration)
 
 **ChatKit Implementation:**
 - Installed `@chatscope/chat-ui-kit-react` and styles
@@ -203,9 +243,97 @@ d76d36a feat(notifications): continuous bell ringing for 10 seconds
 
 ---
 
+## Reusable Knowledge (React Query + Recharts)
+
+### 1. React Query with localStorage Persistence
+```typescript
+// components/providers/query-provider.tsx
+const CACHE_KEY = "app-query-cache";
+
+function persistCache(client: QueryClient) {
+  const cache = client.getQueryCache().getAll();
+  const dataToStore = cache
+    .filter(query => query.state.data !== undefined)
+    .map(query => ({
+      queryKey: query.queryKey,
+      data: query.state.data,
+      dataUpdatedAt: query.state.dataUpdatedAt,
+    }));
+  localStorage.setItem(CACHE_KEY, JSON.stringify(dataToStore));
+}
+
+function restoreCache(client: QueryClient) {
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (cached) {
+    JSON.parse(cached).forEach((item) => {
+      // Only restore if cache is less than 30 minutes old
+      if (Date.now() - item.dataUpdatedAt < 1000 * 60 * 30) {
+        client.setQueryData(item.queryKey, item.data);
+      }
+    });
+  }
+}
+```
+
+### 2. Custom React Query Hooks Pattern
+```typescript
+// lib/chat/use-chat-queries.ts
+export const chatKeys = {
+  all: ["chat"] as const,
+  conversations: () => [...chatKeys.all, "conversations"] as const,
+  conversation: (id: string) => [...chatKeys.all, "conversation", id] as const,
+};
+
+export function useConversations() {
+  return useQuery({
+    queryKey: chatKeys.conversations(),
+    queryFn: fetchConversations,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+export function usePrefetchConversation() {
+  const queryClient = useQueryClient();
+  return (id: string) => {
+    queryClient.prefetchQuery({
+      queryKey: chatKeys.conversation(id),
+      queryFn: () => fetchMessages(id),
+    });
+  };
+}
+```
+
+### 3. Recharts Donut Chart with Center Label
+```tsx
+<div className="relative h-32">
+  <ResponsiveContainer width="100%" height="100%">
+    <PieChart>
+      <Pie
+        data={[
+          { name: "Done", value: completed, color: "#22c55e" },
+          { name: "Pending", value: pending, color: "#64748b" },
+        ]}
+        innerRadius={35}
+        outerRadius={50}
+        paddingAngle={2}
+        dataKey="value"
+      >
+        {data.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+      </Pie>
+    </PieChart>
+  </ResponsiveContainer>
+  {/* Center label (absolute positioned) */}
+  <div className="absolute inset-0 flex flex-col items-center justify-center">
+    <span className="text-xl font-bold">{completionRate}%</span>
+  </div>
+</div>
+```
+
+---
+
 ## Reusable Knowledge (Phase V Part A)
 
-### 1. Web Audio API - Bell Sound Pattern
+### 4. Web Audio API - Bell Sound Pattern
 ```typescript
 // IMPORTANT: Reuse single AudioContext (browsers limit instances!)
 let sharedAudioContext: AudioContext | null = null;

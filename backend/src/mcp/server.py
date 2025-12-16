@@ -23,7 +23,7 @@ def get_tool_definitions() -> list[dict[str, Any]]:
             "type": "function",
             "function": {
                 "name": "add_task",
-                "description": "Create a new task for the current user. Infer category from task context if not specified.",
+                "description": "Create a new task for the current user. Infer category from task context if not specified. Detect priority from words like 'important', 'urgent', 'zaroori'. Detect recurrence from words like 'daily', 'every friday', 'har rouz', 'har jumma', 'monthly'.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -37,7 +37,7 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                         },
                         "priority": {
                             "type": "string",
-                            "description": "Task priority: high, medium, or low. Defaults to medium if not specified.",
+                            "description": "Task priority. Set to 'high' if user says important/urgent/zaroori/ahem/fori. Defaults to medium.",
                             "enum": ["high", "medium", "low"],
                         },
                         "category": {
@@ -47,6 +47,11 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                         "due_date": {
                             "type": "string",
                             "description": "Due date in YYYY-MM-DD format. Defaults to today if not specified.",
+                        },
+                        "recurrence_pattern": {
+                            "type": "string",
+                            "description": "Recurrence pattern. Set based on user intent: 'daily' (har rouz, every day), 'weekly' (har jumma, every friday, har hafta), 'biweekly' (har doosra hafta), 'monthly' (har mahina). Defaults to 'none'.",
+                            "enum": ["none", "daily", "weekly", "biweekly", "monthly"],
                         },
                     },
                     "required": ["title"],
@@ -98,7 +103,7 @@ def get_tool_definitions() -> list[dict[str, Any]]:
             "type": "function",
             "function": {
                 "name": "update_task",
-                "description": "Update an existing task's title, description, due date, priority, or category",
+                "description": "Update an existing task's title, description, due date, priority, category, or recurrence pattern",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -130,6 +135,11 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                         "new_category": {
                             "type": "string",
                             "description": "New category for the task",
+                        },
+                        "new_recurrence_pattern": {
+                            "type": "string",
+                            "description": "New recurrence pattern: none, daily, weekly, biweekly, or monthly",
+                            "enum": ["none", "daily", "weekly", "biweekly", "monthly"],
                         },
                     },
                 },

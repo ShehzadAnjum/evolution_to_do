@@ -9,13 +9,13 @@ import {
   ChatContainer,
   MessageList,
   Message,
-  MessageInput,
   TypingIndicator,
   ConversationHeader,
   Avatar,
 } from "@chatscope/chat-ui-kit-react";
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import { getAuthToken } from "@/lib/auth-token";
+import { MessageInput } from "./message-input";
 import type {
   ChatMessage,
   ChatResponse,
@@ -179,13 +179,98 @@ export function ChatKitInterface({ initialConversationId }: ChatKitInterfaceProp
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  const getConversationTitle = (conv: ConversationSummary) => {
-    return conv.title || `Chat ${formatTime(conv.created_at)}`;
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const isToday = date.toDateString() === today.toDateString();
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    if (isToday) {
+      return `Today ${formatTime(dateString)}`;
+    } else if (isYesterday) {
+      return `Yesterday ${formatTime(dateString)}`;
+    } else {
+      return date.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
   };
 
+  const getConversationTitle = (conv: ConversationSummary) => {
+    return conv.title || `Chat ${formatDateTime(conv.updated_at || conv.created_at)}`;
+  };
+
+  // Dark mode CSS for ChatKit
+  const darkModeStyles = `
+    /* Dark mode overrides for ChatKit */
+    .dark .chatkit-dark-mode .cs-main-container,
+    .dark .chatkit-dark-mode .cs-chat-container,
+    .dark .chatkit-dark-mode .cs-message-list,
+    .dark .chatkit-dark-mode .cs-sidebar,
+    .dark .chatkit-dark-mode .cs-conversation-list,
+    .dark .chatkit-dark-mode .cs-conversation-header {
+      background-color: hsl(var(--background)) !important;
+    }
+    .dark .chatkit-dark-mode .cs-conversation {
+      background-color: hsl(var(--card)) !important;
+    }
+    .dark .chatkit-dark-mode .cs-conversation:hover,
+    .dark .chatkit-dark-mode .cs-conversation--active {
+      background-color: hsl(var(--secondary)) !important;
+    }
+    .dark .chatkit-dark-mode .cs-conversation__name,
+    .dark .chatkit-dark-mode .cs-conversation__info,
+    .dark .chatkit-dark-mode .cs-conversation-header__user-name,
+    .dark .chatkit-dark-mode .cs-conversation-header__info {
+      color: hsl(var(--foreground)) !important;
+    }
+    .dark .chatkit-dark-mode .cs-message__content {
+      background-color: hsl(var(--secondary)) !important;
+      color: hsl(var(--foreground)) !important;
+    }
+    .dark .chatkit-dark-mode .cs-message--outgoing .cs-message__content {
+      background-color: hsl(var(--primary)) !important;
+      color: hsl(var(--primary-foreground)) !important;
+    }
+    .dark .chatkit-dark-mode .cs-typing-indicator__dot {
+      background-color: hsl(var(--muted-foreground)) !important;
+    }
+    .dark .chatkit-dark-mode .cs-typing-indicator__text {
+      color: hsl(var(--muted-foreground)) !important;
+    }
+    /* Message header (sender name) */
+    .chatkit-dark-mode .cs-message__sender-name {
+      font-size: 11px !important;
+      margin-bottom: 2px !important;
+    }
+    .dark .chatkit-dark-mode .cs-message__sender-name {
+      color: hsl(var(--muted-foreground)) !important;
+    }
+    /* Message sent time */
+    .chatkit-dark-mode .cs-message__sent-time {
+      font-size: 10px !important;
+      opacity: 0.7;
+    }
+    .dark .chatkit-dark-mode .cs-message__sent-time {
+      color: hsl(var(--muted-foreground)) !important;
+    }
+    /* Sidebar button styling */
+    .dark .chatkit-dark-mode button {
+      background-color: hsl(var(--primary)) !important;
+    }
+  `;
+
   return (
-    <div style={{ height: "600px", maxHeight: "80vh" }}>
-      <MainContainer>
+    <div className="chatkit-dark-mode flex flex-col" style={{ height: "600px", maxHeight: "80vh" }}>
+      <style dangerouslySetInnerHTML={{ __html: darkModeStyles }} />
+      <div className="flex-1 overflow-hidden">
+        <MainContainer>
         {/* Sidebar with conversation list */}
         <Sidebar position="left" scrollable>
           <div style={{ padding: "10px" }}>
@@ -274,15 +359,26 @@ export function ChatKitInterface({ initialConversationId }: ChatKitInterfaceProp
                 }}
               />
             )}
-            {messages.map((msg, index) => (
+            {messages
+              // Filter out tool response messages (they have tool_call_id)
+              // and messages that look like raw JSON tool results
+              .filter((msg) => {
+                // Skip tool response messages
+                if (msg.tool_call_id) return false;
+                // Skip messages that are raw JSON tool results
+                if (msg.content?.startsWith('{"success"')) return false;
+                if (msg.content?.startsWith('{"tasks"')) return false;
+                return true;
+              })
+              .map((msg) => (
               <Message
                 key={msg.id}
                 model={{
                   message: msg.content,
-                  sender: msg.role === "user" ? "You" : "Assistant",
+                  sender: msg.role === "user" ? "You" : "AI",
                   direction: msg.role === "user" ? "outgoing" : "incoming",
                   position: "single",
-                  sentTime: formatTime(msg.created_at),
+                  sentTime: formatDateTime(msg.created_at),
                 }}
               >
                 {msg.role === "assistant" && (
@@ -291,15 +387,16 @@ export function ChatKitInterface({ initialConversationId }: ChatKitInterfaceProp
               </Message>
             ))}
           </MessageList>
-
-          <MessageInput
-            placeholder="Ask me to manage your tasks..."
-            onSend={sendMessage}
-            disabled={isLoading}
-            attachButton={false}
-          />
         </ChatContainer>
-      </MainContainer>
+        </MainContainer>
+      </div>
+
+      {/* Custom input with voice support */}
+      <MessageInput
+        onSend={sendMessage}
+        disabled={isLoading}
+        placeholder="Ask me to manage your tasks..."
+      />
     </div>
   );
 }

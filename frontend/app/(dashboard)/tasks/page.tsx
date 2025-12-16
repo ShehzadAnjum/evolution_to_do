@@ -9,7 +9,7 @@ import {
   CategoryFilter,
   PriorityFilter,
 } from "@/components/tasks";
-import { ChatPanel } from "@/components/chat";
+import { ChatKitPanel } from "@/components/chat";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +59,20 @@ export default function TasksPage() {
 
   // Chat panel toggle
   const [chatOpen, setChatOpen] = useState(false);
+
+  // Chat loading state (for main header indicator)
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatLoadComplete, setChatLoadComplete] = useState(false);
+
+  // Handle chat loading state changes
+  const handleChatLoadingChange = (isLoading: boolean) => {
+    setChatLoading(isLoading);
+    if (!isLoading) {
+      // Loading just finished - show success message briefly
+      setChatLoadComplete(true);
+      setTimeout(() => setChatLoadComplete(false), 2500);
+    }
+  };
 
   // Task dialog toggle
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -396,8 +410,8 @@ export default function TasksPage() {
         />
       </aside>
 
-      {/* Main Content Area - flex column with fixed header */}
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+      {/* Main Content Area - flex column with fixed header, shifts left when chat is open */}
+      <div className={`flex-1 flex flex-col h-full min-w-0 overflow-hidden transition-all duration-300 ${chatOpen ? "lg:mr-[630px] sm:mr-[576px]" : ""}`}>
         {/* Header - FIXED at top, never scrolls */}
         <header className="flex-none h-14 z-30 bg-card border-b border-border px-4 lg:px-6 flex items-center justify-between">
           {/* Left: Menu button (mobile) + Title */}
@@ -445,6 +459,21 @@ export default function TasksPage() {
                 🔍
               </span>
             </div>
+
+            {/* Chat Loading Indicator - shown while loading chat history */}
+            {chatLoading && (
+              <span className="flex items-center gap-1.5 text-xs text-green-500 font-medium">
+                <span className="animate-spin">⏳</span>
+                <span className="hidden sm:inline">Loading chat history...</span>
+              </span>
+            )}
+            {/* Chat Load Complete - shown briefly after loading finishes */}
+            {chatLoadComplete && !chatLoading && (
+              <span className="flex items-center gap-1.5 text-xs text-green-500 font-medium animate-pulse">
+                <span>✓</span>
+                <span className="hidden sm:inline">Chat history loaded</span>
+              </span>
+            )}
 
             {/* Notification Toggle with Bell Animation */}
             {notificationPermission !== 'unsupported' && (
@@ -661,8 +690,14 @@ export default function TasksPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Chat Panel */}
-      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} onTasksChanged={loadTasks} />
+      {/* Chat Panel - preloadOnMount loads conversations in background when page loads */}
+      <ChatKitPanel
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        onTasksChanged={loadTasks}
+        preloadOnMount={true}
+        onLoadingChange={handleChatLoadingChange}
+      />
     </div>
   );
 }

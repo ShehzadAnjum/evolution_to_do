@@ -70,7 +70,8 @@ class ToolExecutor:
         """Create a new task.
 
         Args:
-            arguments: {title: str, description?: str, priority?: str, category?: str, due_date?: str}
+            arguments: {title: str, description?: str, priority?: str, category?: str,
+                       due_date?: str, recurrence_pattern?: str}
 
         Returns:
             Created task details
@@ -80,6 +81,7 @@ class ToolExecutor:
         priority = arguments.get("priority", "medium").lower()
         category = arguments.get("category", "general").lower()
         due_date_str = arguments.get("due_date")
+        recurrence = arguments.get("recurrence_pattern", "none").lower()
 
         if not title:
             return {"success": False, "error": "Title is required"}
@@ -96,6 +98,11 @@ class ToolExecutor:
         if category not in valid_categories:
             # Allow custom categories, just use as-is
             pass
+
+        # Validate recurrence pattern
+        valid_recurrence = ["none", "daily", "weekly", "biweekly", "monthly"]
+        if recurrence not in valid_recurrence:
+            recurrence = "none"
 
         # Parse due_date or default to today
         due_date = None
@@ -117,6 +124,7 @@ class ToolExecutor:
             priority=priority,
             category=category,
             due_date=due_date,
+            recurrence_pattern=recurrence,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
@@ -135,6 +143,7 @@ class ToolExecutor:
                 "priority": task.priority,
                 "category": task.category,
                 "due_date": str(task.due_date) if task.due_date else None,
+                "recurrence_pattern": task.recurrence_pattern,
                 "created_at": task.created_at.isoformat(),
             },
             "message": f"Task '{title}' created successfully",
@@ -175,6 +184,10 @@ class ToolExecutor:
                     "title": t.title,
                     "description": t.description,
                     "is_complete": t.is_complete,
+                    "priority": t.priority,
+                    "category": t.category,
+                    "due_date": str(t.due_date) if t.due_date else None,
+                    "recurrence_pattern": t.recurrence_pattern,
                     "created_at": t.created_at.isoformat(),
                 }
                 for t in tasks
@@ -226,17 +239,22 @@ class ToolExecutor:
                 "title": task.title,
                 "description": task.description,
                 "is_complete": task.is_complete,
+                "priority": task.priority,
+                "category": task.category,
+                "due_date": str(task.due_date) if task.due_date else None,
+                "recurrence_pattern": task.recurrence_pattern,
                 "created_at": task.created_at.isoformat(),
                 "updated_at": task.updated_at.isoformat(),
             },
         }
 
     async def _update_task(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        """Update a task's title, description, due date, priority, or category.
+        """Update a task's title, description, due date, priority, category, or recurrence.
 
         Args:
             arguments: {task_id?: str, title?: str, new_title?: str, new_description?: str,
-                       new_due_date?: str, new_priority?: str, new_category?: str}
+                       new_due_date?: str, new_priority?: str, new_category?: str,
+                       new_recurrence_pattern?: str}
 
         Returns:
             Updated task details
@@ -248,6 +266,7 @@ class ToolExecutor:
         new_due_date = arguments.get("new_due_date")
         new_priority = arguments.get("new_priority")
         new_category = arguments.get("new_category")
+        new_recurrence = arguments.get("new_recurrence_pattern")
 
         # Find the task
         task = None
@@ -308,6 +327,14 @@ class ToolExecutor:
             task.category = new_category.lower().strip()
             changes.append("category")
 
+        if new_recurrence is not None:
+            valid_recurrence = ["none", "daily", "weekly", "biweekly", "monthly"]
+            if new_recurrence.lower() in valid_recurrence:
+                task.recurrence_pattern = new_recurrence.lower()
+                changes.append("recurrence")
+            else:
+                return {"success": False, "error": "Recurrence must be none, daily, weekly, biweekly, or monthly"}
+
         task.updated_at = datetime.utcnow()
         self.db.add(task)
         self.db.commit()
@@ -323,6 +350,7 @@ class ToolExecutor:
                 "priority": task.priority,
                 "category": task.category,
                 "due_date": str(task.due_date) if task.due_date else None,
+                "recurrence_pattern": task.recurrence_pattern,
                 "updated_at": task.updated_at.isoformat(),
             },
             "message": f"Task '{task.title}' updated: {', '.join(changes)}" if changes else f"Task '{task.title}' unchanged",

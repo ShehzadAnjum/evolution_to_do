@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, KeyboardEvent, useEffect } from "react";
+import { useState, useRef, KeyboardEvent, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { useSpeechRecognition, SpeechLanguage } from "@/lib/voice/use-speech-recognition";
 
@@ -10,14 +10,35 @@ interface MessageInputProps {
   placeholder?: string;
 }
 
-export function MessageInput({
-  onSend,
-  disabled = false,
-  placeholder = "Type a message...",
-}: MessageInputProps) {
+// Expose methods to parent via ref
+export interface MessageInputRef {
+  setValue: (value: string) => void;
+  focus: () => void;
+}
+
+export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
+  function MessageInput({
+    onSend,
+    disabled = false,
+    placeholder = "Type a message...",
+  }, ref) {
   const [message, setMessage] = useState("");
   const [voiceLang, setVoiceLang] = useState<SpeechLanguage>("ur-PK");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Expose methods to parent
+  useImperativeHandle(ref, () => ({
+    setValue: (value: string) => {
+      setMessage(value);
+      // Focus the textarea
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    },
+    focus: () => {
+      textareaRef.current?.focus();
+    }
+  }));
 
   const {
     isListening,
@@ -132,8 +153,8 @@ export function MessageInput({
           onInput={handleInput}
           placeholder={isListening ? "Listening..." : placeholder}
           disabled={disabled || isListening}
-          rows={1}
-          className="flex-1 resize-none rounded-lg border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          rows={2}
+          className="flex-1 resize-none rounded-lg border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 min-h-[4.5rem]"
         />
 
         {/* Mic button */}
@@ -161,4 +182,4 @@ export function MessageInput({
       </div>
     </div>
   );
-}
+});

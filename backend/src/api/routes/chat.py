@@ -18,12 +18,21 @@ from ...mcp.tools.tool_executor import ToolExecutor
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
+class ContextMessage(BaseModel):
+    """A message to include as context."""
+    role: str = Field(..., description="Message role: user or assistant")
+    content: str = Field(..., description="Message content")
+
+
 class ChatRequest(BaseModel):
     """Request body for sending a chat message."""
 
     message: str = Field(..., min_length=1, max_length=4000, description="User message")
     conversation_id: Optional[str] = Field(
         default=None, description="Optional conversation ID to continue"
+    )
+    context_messages: Optional[list[ContextMessage]] = Field(
+        default=None, description="Additional context messages from other conversations"
     )
 
 
@@ -76,11 +85,17 @@ async def send_message(
                 detail="Invalid conversation ID format",
             )
 
+    # Convert context messages if provided
+    context = None
+    if request.context_messages:
+        context = [{"role": cm.role, "content": cm.content} for cm in request.context_messages]
+
     # Process the message
     try:
         result = await chat_service.process_message(
             message=request.message,
             conversation_id=conversation_uuid,
+            context_messages=context,
         )
         return ChatResponse(**result)
     except Exception as e:
@@ -188,3 +203,42 @@ async def delete_conversation(
         )
 
     return {"success": True, "message": "Conversation deleted"}
+
+
+@router.delete("/conversations/{conversation_id}/messages/{message_id}")
+async def delete_message(
+    conversation_id: str,
+    message_id: str,
+    user_id: str = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    """Delete a specific message from a conversation.
+
+    Args:
+        conversation_id: UUID of the conversation
+        message_id: UUID of the message to delete
+        user_id: Authenticated user ID
+        session: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        conv_uuid = UUID(conversation_id)
+        msg_uuid = UUID(message_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ID format",
+        )
+
+    chat_service = ChatService(session, user_id)
+    deleted = await chat_service.delete_message(conv_uuid, msg_uuid)
+
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Message not found",
+        )
+
+    return {"success": True, "message": "Message deleted"}

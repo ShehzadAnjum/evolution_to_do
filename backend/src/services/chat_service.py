@@ -304,6 +304,84 @@ RULE 6 - HUMOR WHERE APPROPRIATE (BE HUMAN):
 │ - Wife/spouse humor should be gentle teasing, never mean-spirited          │
 └─────────────────────────────────────────────────────────────────────────────┘
 
+RULE 7 - PRIORITY INFERENCE (DETECT URGENCY/IMPORTANCE):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Automatically set priority=HIGH when user indicates importance:             │
+│                                                                             │
+│ ENGLISH TRIGGERS → priority: "high"                                         │
+│ - "important", "urgent", "critical", "asap", "high priority"                │
+│ - "very important", "super urgent", "priority one", "top priority"          │
+│ - "don't forget", "must do", "essential", "crucial"                         │
+│                                                                             │
+│ URDU/ROMAN URDU TRIGGERS → priority: "high"                                 │
+│ - "zaroori", "zaroori hai" (important/necessary)                            │
+│ - "bohat zaroori", "bohot zaroori" (very important)                         │
+│ - "ahem", "bohat ahem" (important)                                          │
+│ - "fori", "foran" (urgent/immediately)                                      │
+│ - "jaldi", "jaldi karo" (quick/hurry)                                       │
+│ - "zaroor karna", "zaroor yaad" (must do/must remember)                     │
+│ - "bhoolna nahi" (don't forget)                                             │
+│ - "ضروری", "اہم", "فوری" (Urdu script: important, urgent)                   │
+│                                                                             │
+│ CONTEXT TRIGGERS → priority: "high"                                         │
+│ - Meeting/appointment today or tomorrow                                     │
+│ - Deadline mentioned (e.g., "due tomorrow", "kal tak")                      │
+│ - Health/medical related                                                    │
+│ - Boss/work emergency                                                       │
+│                                                                             │
+│ EXAMPLE:                                                                    │
+│ User: "Important meeting with CEO add karo"                                 │
+│ → add_task(title="Meeting with CEO", priority="high", ...)                  │
+│                                                                             │
+│ User: "zaroori kaam hai - call accountant"                                  │
+│ → add_task(title="Call accountant", priority="high", ...)                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RULE 8 - RECURRENCE INFERENCE (DETECT REPEAT PATTERNS):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Detect recurring task patterns and set recurrence_pattern accordingly:      │
+│                                                                             │
+│ DAILY TRIGGERS → recurrence_pattern: "daily"                                │
+│ - "every day", "daily", "everyday", "each day"                              │
+│ - "har rouz", "har din", "roz", "rozana" (Urdu: every day)                  │
+│ - "ہر روز", "روزانہ" (Urdu script: daily)                                   │
+│                                                                             │
+│ WEEKLY TRIGGERS → recurrence_pattern: "weekly"                              │
+│ - "every week", "weekly", "once a week"                                     │
+│ - "every [day]": Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday│
+│ - "har hafta", "hafta waar" (Urdu: every week)                              │
+│ - "har somwar" (every Monday), "har mangal" (every Tuesday)                 │
+│ - "har budh" (every Wednesday), "har jumerat" (every Thursday)              │
+│ - "har jumma" (every Friday), "har hafta" (every Saturday)                  │
+│ - "har itwar" (every Sunday)                                                │
+│ - "ہر جمعہ", "ہر ہفتہ" (Urdu script: every Friday, every week)              │
+│                                                                             │
+│ BIWEEKLY TRIGGERS → recurrence_pattern: "biweekly"                          │
+│ - "every two weeks", "biweekly", "every other week", "fortnightly"          │
+│ - "do hafton mein", "har doosra hafta" (Urdu: every two weeks)              │
+│                                                                             │
+│ MONTHLY TRIGGERS → recurrence_pattern: "monthly"                            │
+│ - "every month", "monthly", "once a month"                                  │
+│ - "har mahina", "mahine mein ek baar" (Urdu: every month)                   │
+│ - "ہر مہینے" (Urdu script: every month)                                     │
+│ - "pehli tarikh ko" (on the 1st)                                            │
+│                                                                             │
+│ EXAMPLES:                                                                   │
+│ User: "har jumma gym jana hai"                                              │
+│ → add_task(title="Gym jana", recurrence_pattern="weekly", ...)              │
+│                                                                             │
+│ User: "daily morning walk add karo"                                         │
+│ → add_task(title="Morning walk", recurrence_pattern="daily", ...)           │
+│                                                                             │
+│ User: "har mahina rent dena hai"                                            │
+│ → add_task(title="Rent dena", recurrence_pattern="monthly", ...)            │
+│                                                                             │
+│ User: "every Friday team meeting"                                           │
+│ → add_task(title="Team meeting", recurrence_pattern="weekly", ...)          │
+│                                                                             │
+│ ⚠️ If no recurrence mentioned → recurrence_pattern: "none" (default)        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
 ═══════════════════════════════════════════════════════════════════════════════
 
 **SITUATION IMPACT ANALYSIS (GENERIC - NOT HARDCODED):**
@@ -566,10 +644,10 @@ Response examples (when user writes in Roman Urdu, respond in Urdu script):
 - If still no task relevance: "I'm a task management assistant. I can help you add, complete, update, or delete tasks. What would you like to do with your tasks?"
 
 You have access to the following tools:
-- add_task: Create a new task with title, description, priority, category, and due_date
+- add_task: Create a new task with title, description, priority, category, due_date, and recurrence_pattern (none/daily/weekly/biweekly/monthly)
 - list_tasks: List all tasks, optionally filtered by status (all, complete, incomplete)
 - get_task: Get details of a specific task by ID or title
-- update_task: Update a task's title or description
+- update_task: Update a task's title, description, due_date, priority, category, or recurrence_pattern
 - delete_task: Delete a task permanently
 - complete_task: Mark a task as complete or toggle its status
 - search_tasks: Search tasks by keyword
@@ -714,12 +792,14 @@ class ChatService:
         self,
         message: str,
         conversation_id: uuid.UUID | None = None,
+        context_messages: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         """Process a user message and get AI response.
 
         Args:
             message: User's message text
             conversation_id: Optional conversation ID to continue
+            context_messages: Optional list of messages from other conversations to use as context
 
         Returns:
             Dict with success, conversation_id, message, and tool_results
@@ -750,7 +830,7 @@ class ChatService:
         self.db.commit()
 
         # Build message history for OpenAI (AI will self-detect language)
-        messages = await self._build_message_history(conversation.id)
+        messages = await self._build_message_history(conversation.id, context_messages)
 
         # Log what we're sending to AI
         logger.info("-" * 80)
@@ -897,16 +977,36 @@ class ChatService:
     async def _build_message_history(
         self,
         conversation_id: uuid.UUID,
+        context_messages: list[dict[str, str]] | None = None,
     ) -> list[dict[str, Any]]:
         """Build message history for OpenAI API.
 
         Args:
             conversation_id: Conversation ID
+            context_messages: Optional messages from other conversations to include as context
 
         Returns:
             List of message dicts for OpenAI
         """
         messages = [{"role": "system", "content": get_system_prompt()}]
+
+        # Add context messages from other conversations (if provided)
+        if context_messages:
+            # Add a context separator
+            messages.append({
+                "role": "system",
+                "content": "--- Context from previous conversations (for reference) ---"
+            })
+            for ctx_msg in context_messages:
+                messages.append({
+                    "role": ctx_msg.get("role", "user"),
+                    "content": ctx_msg.get("content", "")
+                })
+            messages.append({
+                "role": "system",
+                "content": "--- End of context. Current conversation follows: ---"
+            })
+            logger.info(f"📚 Added {len(context_messages)} context messages from other conversations")
 
         # Get all messages for this conversation
         statement = (
@@ -1006,17 +1106,22 @@ class ChatService:
         count_statement = select(Conversation).where(Conversation.user_id == self.user_id)
         total_count = len(self.db.exec(count_statement).all())
 
+        # Get message counts for each conversation
+        conversation_data = []
+        for c in conversations:
+            msg_count_stmt = select(Message).where(Message.conversation_id == c.id)
+            msg_count = len(self.db.exec(msg_count_stmt).all())
+            conversation_data.append({
+                "id": str(c.id),
+                "title": c.title,
+                "created_at": c.created_at.isoformat(),
+                "updated_at": c.updated_at.isoformat(),
+                "message_count": msg_count,
+            })
+
         return {
             "success": True,
-            "conversations": [
-                {
-                    "id": str(c.id),
-                    "title": c.title,
-                    "created_at": c.created_at.isoformat(),
-                    "updated_at": c.updated_at.isoformat(),
-                }
-                for c in conversations
-            ],
+            "conversations": conversation_data,
             "total_count": total_count,
         }
 
@@ -1096,6 +1201,41 @@ class ChatService:
 
         # Delete conversation
         self.db.delete(conversation)
+        self.db.commit()
+
+        return True
+
+    async def delete_message(self, conversation_id: uuid.UUID, message_id: uuid.UUID) -> bool:
+        """Delete a specific message from a conversation.
+
+        Args:
+            conversation_id: Conversation ID
+            message_id: Message ID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        # Verify conversation belongs to user
+        conv_statement = select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == self.user_id,
+        )
+        conversation = self.db.exec(conv_statement).first()
+
+        if not conversation:
+            return False
+
+        # Get and delete the message
+        msg_statement = select(Message).where(
+            Message.id == message_id,
+            Message.conversation_id == conversation_id,
+        )
+        message = self.db.exec(msg_statement).first()
+
+        if not message:
+            return False
+
+        self.db.delete(message)
         self.db.commit()
 
         return True
