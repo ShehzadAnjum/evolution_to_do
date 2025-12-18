@@ -102,6 +102,11 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          # MQTT Configuration for IoT Device Control
+          MQTT_BROKER: ${{ secrets.MQTT_BROKER }}
+          MQTT_PORT: ${{ secrets.MQTT_PORT }}
+          MQTT_USERNAME: ${{ secrets.MQTT_USERNAME }}
+          MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD }}
           # Use short SHA (7 chars) to match CI image tags, or 'latest'
           IMAGE_TAG: latest
         run: |
@@ -114,6 +119,11 @@ jobs:
               DATABASE_URL: "${DATABASE_URL}"
               BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET}"
               OPENAI_API_KEY: "${OPENAI_API_KEY}"
+              MQTT_BROKER: "${MQTT_BROKER}"
+              MQTT_PORT: "${MQTT_PORT}"
+              MQTT_USERNAME: "${MQTT_USERNAME}"
+              MQTT_PASSWORD: "${MQTT_PASSWORD}"
+              MQTT_ENABLED: "true"
           frontend:
             image:
               tag: "${IMAGE_TAG}"

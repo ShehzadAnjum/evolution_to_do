@@ -51,6 +51,37 @@ spec:
                   name: {{ include "evolution-todo.fullname" . }}-secrets
                   key: openai-api-key
                   optional: true
+            # MQTT Configuration for IoT Device Control
+            - name: MQTT_BROKER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "evolution-todo.fullname" . }}-secrets
+                  key: mqtt-broker
+                  optional: true
+            - name: MQTT_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "evolution-todo.fullname" . }}-secrets
+                  key: mqtt-port
+                  optional: true
+            - name: MQTT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "evolution-todo.fullname" . }}-secrets
+                  key: mqtt-username
+                  optional: true
+            - name: MQTT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "evolution-todo.fullname" . }}-secrets
+                  key: mqtt-password
+                  optional: true
+            - name: MQTT_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "evolution-todo.fullname" . }}-secrets
+                  key: mqtt-enabled
+                  optional: true
             {{- if .Values.dapr.enabled }}
             - name: DAPR_ENABLED
               value: "true"

@@ -27,6 +27,12 @@ backend:
     DATABASE_URL: ""
     BETTER_AUTH_SECRET: ""
     OPENAI_API_KEY: ""
+    # MQTT Configuration for IoT Device Control (v4.0.0)
+    MQTT_BROKER: ""
+    MQTT_PORT: ""
+    MQTT_USERNAME: ""
+    MQTT_PASSWORD: ""
+    MQTT_ENABLED: "false"
 
 # Frontend configuration
 frontend:
