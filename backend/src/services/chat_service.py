@@ -501,22 +501,29 @@ RULE 9 - IOT DEVICE CONTROL (v4.0.0):
 │    - "energy saving", "bijli bachao", "sab band karo"                      │
 │    - Urdu: "سو رہا ہوں", "رات ہو گئی"                                       │
 │                                                                             │
-│ ⚠️ EXECUTION RULES:                                                        │
-│    For IMMEDIATE control: call control_device 4 times (relays 1,2,3,4)     │
-│    For SCHEDULED control: call schedule_device 4 times (relays 1,2,3,4)    │
-│    For COMBINED (Scenario 3): call control_device 4x THEN schedule_device 4x│
+│ 🚨🚨🚨 CRITICAL EXECUTION RULES - YOU MUST ACTUALLY CALL THE TOOLS! 🚨🚨🚨 │
 │                                                                             │
-│    control_device calls:                                                   │
-│    1. control_device(relay_number=1, action="off/on")                      │
-│    2. control_device(relay_number=2, action="off/on")                      │
-│    3. control_device(relay_number=3, action="off/on")                      │
-│    4. control_device(relay_number=4, action="off/on")                      │
+│ ❌ WRONG: Just saying "I'll turn on at 3:31 AM" without calling tools       │
+│ ✅ RIGHT: Actually call schedule_device 4 times to CREATE the schedules     │
 │                                                                             │
-│    schedule_device calls (for return time):                                │
-│    1. schedule_device(relay_number=1, action="on", due_date, due_time)     │
-│    2. schedule_device(relay_number=2, action="on", due_date, due_time)     │
-│    3. schedule_device(relay_number=3, action="on", due_date, due_time)     │
-│    4. schedule_device(relay_number=4, action="on", due_date, due_time)     │
+│ For IMMEDIATE control: CALL control_device 4 times (relays 1,2,3,4)        │
+│ For SCHEDULED control: CALL schedule_device 4 times (relays 1,2,3,4)       │
+│ For COMBINED (Scenario 3): CALL control_device 4x THEN schedule_device 4x  │
+│                                                                             │
+│ Example: "going out, back by 3:31 AM" requires 8 TOOL CALLS:               │
+│    FIRST - Turn off now (4 calls):                                         │
+│    1. control_device(relay_number=1, action="off")                         │
+│    2. control_device(relay_number=2, action="off")                         │
+│    3. control_device(relay_number=3, action="off")                         │
+│    4. control_device(relay_number=4, action="off")                         │
+│                                                                             │
+│    THEN - Schedule turn on (4 calls):                                      │
+│    5. schedule_device(relay_number=1, action="on", due_date="YYYY-MM-DD", due_time="03:31", recurrence_pattern="none")│
+│    6. schedule_device(relay_number=2, action="on", due_date="YYYY-MM-DD", due_time="03:31", recurrence_pattern="none")│
+│    7. schedule_device(relay_number=3, action="on", due_date="YYYY-MM-DD", due_time="03:31", recurrence_pattern="none")│
+│    8. schedule_device(relay_number=4, action="on", due_date="YYYY-MM-DD", due_time="03:31", recurrence_pattern="none")│
+│                                                                             │
+│ ⚠️ If you don't call schedule_device, NO TASK IS CREATED and nothing happens│
 │                                                                             │
 │ TIME PARSING:                                                               │
 │ - "6pm" / "6 pm" / "6:00 pm" → "18:00"                                     │
