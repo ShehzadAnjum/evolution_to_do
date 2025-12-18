@@ -29,7 +29,8 @@ RUN pip install --no-cache-dir \
     "mcp>=1.23.3" \
     "openai>=2.9.0" \
     "httpx>=0.27.0" \
-    "edge-tts>=6.1.0"
+    "edge-tts>=6.1.0" \
+    "aiomqtt>=2.0.0"
 
 # ================================
 # Stage 2: Production
