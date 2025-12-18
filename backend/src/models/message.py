@@ -4,7 +4,7 @@ This module defines the Message model for storing chat messages.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 from typing import Optional
 
@@ -39,7 +39,7 @@ class Message(MessageBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     conversation_id: uuid.UUID = Field(index=True, description="Parent conversation ID")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class MessageCreate(SQLModel):

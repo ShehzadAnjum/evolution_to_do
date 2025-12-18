@@ -48,6 +48,10 @@ class ToolExecutor:
             "complete_task": self._complete_task,
             "search_tasks": self._search_tasks,
             "clear_completed_tasks": self._clear_completed_tasks,
+            # v4.0.0: IoT device control tools
+            "control_device": self._control_device,
+            "schedule_device": self._schedule_device,
+            "device_status": self._device_status,
         }
 
         handler = tool_handlers.get(name)
@@ -528,4 +532,237 @@ class ToolExecutor:
             "success": True,
             "deleted_count": count,
             "message": f"Cleared {count} completed task(s)",
+        }
+
+    # =========================================================================
+    # v4.0.0: IoT Device Control Tools
+    # =========================================================================
+
+    async def _control_device(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Control an IoT device immediately.
+
+        Args:
+            arguments: {relay_number: int, action: str, device_name?: str}
+
+        Returns:
+            Command result
+        """
+        from ...services.mqtt_service import get_mqtt_service, RELAY_NAMES
+
+        relay_number = arguments.get("relay_number", 1)
+        action = arguments.get("action", "toggle").lower()
+        device_name = arguments.get("device_name", "").lower()
+
+        # Map device names to relay numbers
+        name_to_relay = {
+            "light": 1, "batii": 1, "rooshni": 1, "bulb": 1,
+            "fan": 2, "pankha": 2,
+            "aquarium": 3, "fish": 3, "machli": 3, "fish tank": 3,
+            "relay4": 4, "relay 4": 4,
+        }
+
+        # If device_name provided, try to map it
+        if device_name and device_name in name_to_relay:
+            relay_number = name_to_relay[device_name]
+
+        # Validate
+        if relay_number < 1 or relay_number > 4:
+            return {"success": False, "error": "Relay number must be 1-4"}
+        if action not in ["on", "off", "toggle"]:
+            return {"success": False, "error": "Action must be on, off, or toggle"}
+
+        mqtt = get_mqtt_service()
+        if not mqtt.is_connected:
+            return {
+                "success": False,
+                "error": "MQTT not connected. Device control is offline.",
+            }
+
+        result = await mqtt.publish_immediate(
+            relay_number=relay_number,
+            action=action,
+        )
+
+        if result["success"]:
+            relay_name = RELAY_NAMES.get(relay_number, f"Relay {relay_number}")
+            return {
+                "success": True,
+                "command_id": result.get("command_id"),
+                "relay": relay_name,
+                "action": action,
+                "message": f"Sent {action} command to {relay_name}",
+            }
+        else:
+            return result
+
+    async def _schedule_device(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Schedule a device action for a future time.
+
+        Args:
+            arguments: {
+                relay_number: int,
+                action: str,
+                due_date: str (YYYY-MM-DD),
+                due_time: str (HH:MM),
+                recurrence_pattern?: str,
+                weekday?: str
+            }
+
+        Returns:
+            Schedule confirmation with task_id
+        """
+        from ...services.mqtt_service import get_mqtt_service, RELAY_NAMES
+
+        relay_number = arguments.get("relay_number", 1)
+        action = arguments.get("action", "toggle").lower()
+        due_date_str = arguments.get("due_date")
+        due_time_str = arguments.get("due_time", "00:00")
+        recurrence = arguments.get("recurrence_pattern", "none").lower()
+        weekday = arguments.get("weekday")
+        device_name = arguments.get("device_name", "").lower()
+
+        # Map device names to relay numbers
+        name_to_relay = {
+            "light": 1, "batii": 1, "rooshni": 1, "bulb": 1,
+            "fan": 2, "pankha": 2,
+            "aquarium": 3, "fish": 3, "machli": 3, "fish tank": 3,
+            "relay4": 4, "relay 4": 4,
+        }
+
+        if device_name and device_name in name_to_relay:
+            relay_number = name_to_relay[device_name]
+
+        # Validate
+        if relay_number < 1 or relay_number > 4:
+            return {"success": False, "error": "Relay number must be 1-4"}
+        if action not in ["on", "off", "toggle"]:
+            return {"success": False, "error": "Action must be on, off, or toggle"}
+
+        # Parse due_date
+        if not due_date_str:
+            # Default to today (use local time, not UTC)
+            due_date = datetime.now().date()
+        else:
+            try:
+                due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                return {"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}
+
+        # Parse due_time
+        try:
+            time_parts = due_time_str.split(":")
+            hour = int(time_parts[0])
+            minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+        except (ValueError, IndexError):
+            return {"success": False, "error": "Invalid time format. Use HH:MM"}
+
+        # Combine date and time
+        scheduled_datetime = datetime(
+            due_date.year, due_date.month, due_date.day,
+            hour, minute, 0
+        )
+
+        # Check if in the past (for non-recurring) - use local time for comparison
+        if recurrence == "none" and scheduled_datetime <= datetime.now():
+            return {"success": False, "error": "Scheduled time must be in the future"}
+
+        relay_name = RELAY_NAMES.get(relay_number, f"Relay {relay_number}")
+
+        # Create a task of type device_schedule
+        task = TaskDB(
+            title=f"{action.upper()} {relay_name}",
+            description=f"Device schedule: {action} {relay_name}",
+            user_id=self.user_id,
+            task_type="device_schedule",
+            device_id="esp32-home",
+            relay_number=relay_number,
+            device_action=action,
+            due_date=due_date,
+            due_time=due_time_str,
+            recurrence_pattern=recurrence,
+            weekday=weekday.lower() if weekday else None,
+            category="iot",
+            schedule_synced=False,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+
+        self.db.add(task)
+        self.db.commit()
+        self.db.refresh(task)
+
+        # Try to send to ESP32 via MQTT
+        mqtt = get_mqtt_service()
+        if mqtt.is_connected:
+            scheduled_unix = int(scheduled_datetime.timestamp())
+            result = await mqtt.publish_schedule(
+                relay_number=relay_number,
+                action=action,
+                scheduled_time=scheduled_unix,
+                device_name=relay_name,
+            )
+            if result["success"]:
+                task.mqtt_command_id = result.get("command_id")
+                task.schedule_synced = True
+                self.db.add(task)
+                self.db.commit()
+
+        # Format time for message
+        time_str = scheduled_datetime.strftime("%I:%M %p")
+        date_str = scheduled_datetime.strftime("%b %d")
+
+        recurrence_msg = ""
+        if recurrence == "daily":
+            recurrence_msg = " (daily)"
+        elif recurrence == "weekly" and weekday:
+            recurrence_msg = f" (every {weekday.capitalize()})"
+
+        return {
+            "success": True,
+            "task_id": str(task.id),
+            "relay": relay_name,
+            "action": action,
+            "scheduled_time": scheduled_datetime.isoformat(),
+            "synced": task.schedule_synced,
+            "message": f"Scheduled {relay_name} to {action} at {time_str} on {date_str}{recurrence_msg}",
+        }
+
+    async def _device_status(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Get current device status.
+
+        Args:
+            arguments: {} (no arguments needed)
+
+        Returns:
+            Device status including relay states
+        """
+        from ...services.mqtt_service import get_mqtt_service
+
+        mqtt = get_mqtt_service()
+
+        # Request fresh status (async)
+        status_data = await mqtt.request_status()
+
+        # Build friendly message
+        relays = status_data.get("relays", [])
+        relay_states = []
+        for r in relays:
+            relay_states.append(f"{r['name']}: {r['state'].upper()}")
+
+        online_status = "ONLINE" if status_data.get("online") else "OFFLINE"
+        wifi_rssi = status_data.get("wifi_rssi")
+        signal_str = f" (WiFi: {wifi_rssi}dBm)" if wifi_rssi else ""
+
+        return {
+            "success": True,
+            "device": {
+                "device_id": "esp32-home",
+                "name": "Home Controller",
+                "status": online_status.lower(),
+                "relays": relays,
+                "wifi_rssi": wifi_rssi,
+                "last_heartbeat": status_data.get("last_heartbeat"),
+            },
+            "mqtt_connected": mqtt.is_connected,
+            "message": f"Device: {online_status}{signal_str}. {', '.join(relay_states)}",
         }

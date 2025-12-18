@@ -44,6 +44,14 @@ def run_migrations():
         ("tasks", "due_time", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_time VARCHAR(5)"),
         # v3.1.0: Add recurrence_pattern column for recurring tasks
         ("tasks", "recurrence_pattern", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_pattern VARCHAR(10) DEFAULT 'none'"),
+        # v4.0.0: Device scheduling fields
+        ("tasks", "task_type", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_type VARCHAR(20) DEFAULT 'regular'"),
+        ("tasks", "device_id", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS device_id VARCHAR(50)"),
+        ("tasks", "relay_number", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS relay_number INTEGER"),
+        ("tasks", "device_action", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS device_action VARCHAR(10)"),
+        ("tasks", "weekday", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS weekday VARCHAR(10)"),
+        ("tasks", "mqtt_command_id", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS mqtt_command_id VARCHAR(40)"),
+        ("tasks", "schedule_synced", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS schedule_synced BOOLEAN DEFAULT FALSE"),
     ]
 
     with Session(engine) as session:

@@ -1,776 +1,967 @@
 /*
  * Evolution Todo - IoT Controller
- *
- * ESP32-S3 firmware for controlling relays via MQTT
- * Receives commands from Evolution Todo backend
- * Stores schedules locally for offline operation
- *
- * Hardware:
- * - ESP32-S3-WROOM-1 DevKit
- * - 4-channel relay module (Active LOW)
- * - I2C 16x2 LCD display (optional)
- *
- * Author: Evolution Todo Project
- * Date: 2025-12-14
+ * Version: 2.7 (LCD scrolling for long text, 12hr AM/PM format)
  */
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
-#include <esp_wifi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
-#include <Preferences.h>
-#include <time.h>
-
-// ============================================
-// LCD Toggle - Set to false to disable LCD
-// ============================================
-#define LCD_ENABLED false
-
-#if LCD_ENABLED
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-#endif
-
+#include <esp_wifi.h>
+#include <time.h>
 #include "config.h"
+
+// ============================================
+// RGB LED Colors
+// ============================================
+struct RGB { uint8_t r, g, b; };
+
+const RGB COLOR_OFF     = {0, 0, 0};
+const RGB COLOR_RED     = {255, 0, 0};
+const RGB COLOR_GREEN   = {0, 255, 0};
+const RGB COLOR_BLUE    = {0, 0, 255};
+const RGB COLOR_YELLOW  = {255, 200, 0};
+const RGB COLOR_MAGENTA = {255, 0, 255};
+const RGB COLOR_CYAN    = {0, 255, 255};
+const RGB COLOR_ORANGE  = {255, 80, 0};
+
+const uint8_t BRIGHT = 200;
+const uint8_t DULL   = 40;
+
+// Screen timing
+const unsigned long TIME_SCREEN_DURATION = 15000;
+const unsigned long STATUS_SCREEN_DURATION = 3000;
 
 // ============================================
 // Global Objects
 // ============================================
-WiFiClientSecure espClient;
-PubSubClient mqtt(espClient);
-#if LCD_ENABLED
+WiFiClientSecure wifiClient;
+PubSubClient mqtt(wifiClient);
 LiquidCrystal_I2C lcd(LCD_ADDRESS, 16, 2);
-#endif
-Preferences preferences;
 
 // ============================================
-// Relay State
+// State
 // ============================================
-const int relayPins[] = {RELAY_1_PIN, RELAY_2_PIN, RELAY_3_PIN, RELAY_4_PIN};
-const char* relayNames[] = {RELAY_1_NAME, RELAY_2_NAME, RELAY_3_NAME, RELAY_4_NAME};
-bool relayStates[] = {false, false, false, false};  // false = OFF, true = ON
+struct SystemState {
+  bool lcdReady;
+  bool wifiConnected;
+  bool timeSync;
+  bool mqttConnected;
+  bool allReady;
+  bool relays[4];
+} state = {false, false, false, false, false, {false, false, false, false}};
 
 // ============================================
-// Schedule Storage (max 20 schedules)
+// Timers
 // ============================================
-#define MAX_SCHEDULES 20
+struct Timers {
+  unsigned long wifiCheck;
+  unsigned long mqttReconnect;
+  unsigned long heartbeat;
+  unsigned long scheduleCheck;
+  unsigned long screenChange;
+  unsigned long ntpRetry;
+  unsigned long ledBlink;
+} timers = {0};
 
+// LED Blink State
+bool ledBlinking = false;
+bool ledBlinkState = false;
+RGB blinkColor = COLOR_OFF;
+uint8_t blinkBrightness = DULL;
+unsigned long blinkInterval = 300;
+
+// Screen State
+uint8_t currentScreen = 0;
+bool showingTimeScreen = true;
+char lastLine1[17] = "";
+char lastLine2[17] = "";
+uint8_t lastSecond = 255;
+
+// ============================================
+// Schedule Storage
+// ============================================
 struct Schedule {
-  char commandId[40];     // UUID
-  uint8_t relayNumber;    // 1-4
-  uint8_t action;         // 0=off, 1=on, 2=toggle
-  uint32_t executeAt;     // Unix timestamp
-  char deviceName[20];    // For display
-  bool active;            // Is this slot in use?
-  bool executed;          // Already executed?
+  char id[40];
+  uint8_t relay;
+  char action[8];
+  time_t executeAt;
+  bool active;
+  bool countdownStarted;
 };
-
 Schedule schedules[MAX_SCHEDULES];
-int scheduleCount = 0;
+uint8_t scheduleCount = 0;
 
 // ============================================
-// Timing
+// Constants
 // ============================================
-unsigned long lastHeartbeat = 0;
-unsigned long lastScheduleCheck = 0;
-unsigned long lastLcdUpdate = 0;
-unsigned long lastNtpSync = 0;
-bool timeInitialized = false;
+const uint8_t RELAY_PINS[4] = {RELAY_1_PIN, RELAY_2_PIN, RELAY_3_PIN, RELAY_4_PIN};
+const char* RELAY_NAMES[4] = {RELAY_1_NAME, RELAY_2_NAME, RELAY_3_NAME, RELAY_4_NAME};
 
 // ============================================
-// LCD Display State
+// Debug
 // ============================================
-int lcdDisplayMode = 0;  // 0=status, 1=next schedule, 2=time
-unsigned long lcdModeChangeTime = 0;
-
-// ============================================
-// Function Declarations
-// ============================================
-void setupWiFi();
-void setupMQTT();
-void setupRelays();
-void setupTime();
-void mqttCallback(char* topic, byte* payload, unsigned int length);
-void reconnectMQTT();
-void setRelay(int relayNum, bool state);
-void toggleRelay(int relayNum);
-void processCommand(JsonDocument& doc);
-void addSchedule(const char* cmdId, int relay, int action, uint32_t execTime, const char* name);
-void cancelSchedule(const char* cmdId);
-void checkSchedules();
-void sendStatus();
-void sendAck(const char* cmdId, bool success, const char* message);
-void sendHeartbeat();
-void saveSchedulesToNVS();
-void loadSchedulesFromNVS();
-String getTimeString();
-String formatTime(uint32_t timestamp);
-#if LCD_ENABLED
-void setupLCD();
-void updateLCD();
+#if DEBUG_SERIAL
+  #define LOG(x) Serial.println(x)
+  #define LOGF(...) Serial.printf(__VA_ARGS__)
+#else
+  #define LOG(x)
+  #define LOGF(...)
 #endif
 
 // ============================================
-// Setup
+// LED Functions
+// ============================================
+void ledSet(RGB color, uint8_t brightness) {
+  uint8_t r = (color.r * brightness) / 255;
+  uint8_t g = (color.g * brightness) / 255;
+  uint8_t b = (color.b * brightness) / 255;
+  neopixelWrite(RGB_PIN, r, g, b);
+}
+
+void ledOff() {
+  ledBlinking = false;
+  neopixelWrite(RGB_PIN, 0, 0, 0);
+}
+
+void ledSolid(RGB color, uint8_t brightness) {
+  ledBlinking = false;
+  ledSet(color, brightness);
+}
+
+void ledStartBlink(RGB color, uint8_t brightness, unsigned long interval) {
+  ledBlinking = true;
+  blinkColor = color;
+  blinkBrightness = brightness;
+  blinkInterval = interval;
+  ledBlinkState = true;
+  timers.ledBlink = millis();
+  ledSet(color, brightness);
+}
+
+void ledUpdate() {
+  if (!ledBlinking) return;
+
+  unsigned long now = millis();
+  if (now - timers.ledBlink >= blinkInterval) {
+    timers.ledBlink = now;
+    ledBlinkState = !ledBlinkState;
+    if (ledBlinkState) {
+      ledSet(blinkColor, blinkBrightness);
+    } else {
+      neopixelWrite(RGB_PIN, 0, 0, 0);
+    }
+  }
+}
+
+void ledFlash(RGB color, uint8_t brightness, int times, int intervalMs) {
+  ledBlinking = false;
+  for (int i = 0; i < times; i++) {
+    ledSet(color, brightness);
+    delay(intervalMs);
+    neopixelWrite(RGB_PIN, 0, 0, 0);
+    delay(intervalMs);
+  }
+}
+
+// ============================================
+// LCD Functions (No Flicker)
+// ============================================
+void lcdClear() {
+  lcd.clear();
+  lastLine1[0] = '\0';
+  lastLine2[0] = '\0';
+}
+
+void lcdSetLine(int line, const char* text) {
+  char padded[17];
+  snprintf(padded, 17, "%-16s", text);  // Pad to 16 chars
+
+  if (line == 0) {
+    if (strcmp(padded, lastLine1) != 0) {
+      lcd.setCursor(0, 0);
+      lcd.print(padded);
+      strncpy(lastLine1, padded, 16);
+      lastLine1[16] = '\0';
+    }
+  } else {
+    if (strcmp(padded, lastLine2) != 0) {
+      lcd.setCursor(0, 1);
+      lcd.print(padded);
+      strncpy(lastLine2, padded, 16);
+      lastLine2[16] = '\0';
+    }
+  }
+}
+
+// Scroll long text on specified line (blocking, fast scroll)
+void lcdScrollLine(int line, const char* text, int delayMs = 150) {
+  int len = strlen(text);
+  if (len <= 16) {
+    // No need to scroll, just display
+    lcdSetLine(line, text);
+    delay(1500);
+    return;
+  }
+
+  // Add padding for smooth scroll
+  char scrollBuf[64];
+  snprintf(scrollBuf, 64, "%s    ", text);  // Add spaces at end
+  int scrollLen = strlen(scrollBuf);
+
+  // Show initial text
+  char display[17];
+  strncpy(display, scrollBuf, 16);
+  display[16] = '\0';
+  lcd.setCursor(0, line);
+  lcd.print(display);
+  delay(800);  // Pause before scrolling
+
+  // Scroll through text
+  for (int i = 1; i <= scrollLen - 16; i++) {
+    strncpy(display, scrollBuf + i, 16);
+    display[16] = '\0';
+    lcd.setCursor(0, line);
+    lcd.print(display);
+    delay(delayMs);
+  }
+
+  delay(500);  // Pause at end
+}
+
+void lcdShow(const char* line1, const char* line2) {
+  lcdSetLine(0, line1);
+  if (line2) {
+    lcdSetLine(1, line2);
+  }
+}
+
+void lcdShowForce(const char* line1, const char* line2) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(line1);
+  strncpy(lastLine1, line1, 16);
+  lastLine1[16] = '\0';
+
+  if (line2) {
+    lcd.setCursor(0, 1);
+    lcd.print(line2);
+    strncpy(lastLine2, line2, 16);
+    lastLine2[16] = '\0';
+  }
+}
+
+// ============================================
+// INITIALIZATION SEQUENCE
+// ============================================
+
+// Step 1: Init LCD - ORANGE
+bool initLCD() {
+  LOG("[Init] Step 1: LCD");
+  ledStartBlink(COLOR_ORANGE, DULL, 300);
+
+  Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
+
+  Wire.beginTransmission(LCD_ADDRESS);
+  if (Wire.endTransmission() != 0) {
+    LOG("[Init] LCD not found!");
+    return false;
+  }
+
+  lcd.init();
+  lcd.backlight();
+  lcdShowForce("Scanning I2C...", "Address: 0x27");
+
+  // Blink while "connecting"
+  for (int i = 0; i < 4; i++) {
+    ledUpdate();
+    delay(250);
+  }
+
+  // Success: Bright Orange 1.5s
+  ledSolid(COLOR_ORANGE, BRIGHT);
+  lcdShowForce("Display Ready", "16x2 I2C OK");
+  delay(1500);
+
+  state.lcdReady = true;
+  LOG("[Init] LCD Ready");
+  return true;
+}
+
+// Step 2: WiFi - BLUE
+bool initWiFi() {
+  LOG("[Init] Step 2: WiFi");
+  ledStartBlink(COLOR_BLUE, DULL, 300);
+
+  char ssidDisplay[17];
+  strncpy(ssidDisplay, WIFI_SSID, 10);
+  ssidDisplay[10] = '\0';
+
+  char line1[17];
+  snprintf(line1, 17, "WiFi:%s", ssidDisplay);
+  lcdShowForce(line1, "Connecting...");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 40) {
+    delay(500);
+    Serial.print(".");
+    ledUpdate();
+    attempts++;
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFi.setSleep(false);
+    esp_wifi_set_ps(WIFI_PS_NONE);
+
+    // Success: Bright Blue 1.5s
+    ledSolid(COLOR_BLUE, BRIGHT);
+    lcdShowForce("WiFi Connected", WiFi.localIP().toString().c_str());
+    delay(1500);
+
+    state.wifiConnected = true;
+    LOGF("[Init] WiFi Connected: %s\n", WiFi.localIP().toString().c_str());
+    return true;
+  }
+
+  lcdShowForce("WiFi Failed!", "Check credentials");
+  ledFlash(COLOR_RED, BRIGHT, 3, 200);
+  delay(2000);
+  return false;
+}
+
+// Step 3: Time Sync - YELLOW
+bool initTime() {
+  if (!state.wifiConnected) return false;
+
+  LOG("[Init] Step 3: Time Sync");
+  ledStartBlink(COLOR_YELLOW, DULL, 300);
+  lcdShowForce("Syncing Clock...", NTP_SERVER_1);
+
+  configTime(GMT_OFFSET, DST_OFFSET, NTP_SERVER_1, NTP_SERVER_2, NTP_SERVER_3);
+
+  struct tm timeinfo;
+  int attempts = 0;
+  while (!getLocalTime(&timeinfo, 1000) && attempts < 10) {
+    delay(500);
+    ledUpdate();
+    attempts++;
+  }
+
+  if (getLocalTime(&timeinfo)) {
+    // Success: Bright Yellow 1.5s
+    ledSolid(COLOR_YELLOW, BRIGHT);
+
+    char dateLine[17];
+    snprintf(dateLine, 17, "%02d/%02d %02d:%02d:%02d",
+             timeinfo.tm_mday, timeinfo.tm_mon + 1,
+             timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    lcdShowForce("Clock Synced", dateLine);
+    delay(1500);
+
+    state.timeSync = true;
+    LOG("[Init] Time Synced");
+    return true;
+  }
+
+  lcdShowForce("Time Sync Failed", "Will retry...");
+  delay(1500);
+  return false;
+}
+
+// Step 4: MQTT - MAGENTA
+bool initMQTT() {
+  if (!state.wifiConnected) return false;
+
+  LOG("[Init] Step 4: MQTT");
+  ledStartBlink(COLOR_MAGENTA, DULL, 300);
+  lcdShowForce("MQTT Broker...", "HiveMQ Cloud");
+
+  wifiClient.setInsecure();
+  mqtt.setServer(MQTT_BROKER, MQTT_PORT);
+  mqtt.setCallback(onMqttMessage);
+  mqtt.setBufferSize(MQTT_BUFFER_SIZE);
+
+  String clientId = "esp32-" + String(random(0xffff), HEX);
+
+  int attempts = 0;
+  while (!mqtt.connected() && attempts < 5) {
+    ledUpdate();
+    if (mqtt.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
+      break;
+    }
+    delay(1000);
+    ledUpdate();
+    attempts++;
+  }
+
+  if (mqtt.connected()) {
+    mqtt.subscribe(MQTT_TOPIC_COMMANDS);
+
+    // Success: Bright Magenta 1s
+    ledSolid(COLOR_MAGENTA, BRIGHT);
+    lcdShowForce("MQTT Connected", DEVICE_ID);
+    delay(1000);
+
+    // Then Bright Green 2s
+    ledSolid(COLOR_GREEN, BRIGHT);
+    lcdShowForce("MQTT Ready!", "Subscribed OK");
+    delay(2000);
+
+    state.mqttConnected = true;
+    LOG("[Init] MQTT Connected");
+    return true;
+  }
+
+  lcdShowForce("MQTT Failed!", "Check credentials");
+  ledFlash(COLOR_RED, BRIGHT, 3, 200);
+  delay(2000);
+  return false;
+}
+
+// Step 5: All Ready
+void initComplete() {
+  LOG("[Init] All Systems Ready!");
+
+  ledFlash(COLOR_GREEN, BRIGHT, 3, 150);
+  ledSolid(COLOR_GREEN, BRIGHT);
+
+  lcdShowForce("* System Ready *", "v2.6 All OK");
+  delay(2000);
+
+  state.allReady = true;
+  sendHeartbeat();
+
+  // LED OFF in normal mode
+  ledOff();
+
+  // Reset screen
+  timers.screenChange = millis();
+  currentScreen = 0;
+  showingTimeScreen = true;
+  lastLine1[0] = '\0';
+  lastLine2[0] = '\0';
+}
+
+void initRelays() {
+  LOG("[Init] Initializing Relays...");
+  for (int i = 0; i < 4; i++) {
+    pinMode(RELAY_PINS[i], OUTPUT);
+    digitalWrite(RELAY_PINS[i], HIGH);
+    state.relays[i] = false;
+    LOGF("[Init] Relay %d (GPIO %d) = OFF\n", i+1, RELAY_PINS[i]);
+  }
+}
+
+// ============================================
+// SCREEN DISPLAY (No Flicker)
+// ============================================
+void showTimeScreen() {
+  struct tm t;
+  if (getLocalTime(&t)) {
+    // Only update if second changed
+    if (t.tm_sec != lastSecond) {
+      lastSecond = t.tm_sec;
+
+      // Convert to 12-hour format
+      int hour12 = t.tm_hour % 12;
+      if (hour12 == 0) hour12 = 12;  // 0 becomes 12
+      const char* ampm = (t.tm_hour < 12) ? "AM" : "PM";
+
+      char line1[17], line2[17];
+      snprintf(line1, 17, "  %2d:%02d:%02d %s", hour12, t.tm_min, t.tm_sec, ampm);
+
+      const char* days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+      const char* months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+      snprintf(line2, 17, "%s %02d %s %04d",
+               days[t.tm_wday], t.tm_mday, months[t.tm_mon], t.tm_year + 1900);
+      lcdShow(line1, line2);
+    }
+  }
+}
+
+void showWifiScreen() {
+  char line1[17], line2[17];
+  snprintf(line1, 17, "WiFi: %ddBm", WiFi.RSSI());
+  snprintf(line2, 17, "MQTT: %s", state.mqttConnected ? "Connected" : "Disconn");
+  lcdShow(line1, line2);
+}
+
+void showRelayScreen() {
+  char line1[17], line2[17];
+  snprintf(line1, 17, "L:%s F:%s",
+           state.relays[0] ? "ON " : "OFF",
+           state.relays[1] ? "ON " : "OFF");
+  snprintf(line2, 17, "A:%s R:%s",
+           state.relays[2] ? "ON " : "OFF",
+           state.relays[3] ? "ON " : "OFF");
+  lcdShow(line1, line2);
+}
+
+void updateScreen() {
+  unsigned long now = millis();
+  unsigned long elapsed = now - timers.screenChange;
+
+  if (showingTimeScreen) {
+    showTimeScreen();
+
+    if (elapsed >= TIME_SCREEN_DURATION) {
+      showingTimeScreen = false;
+      currentScreen = 1;
+      timers.screenChange = now;
+      lastLine1[0] = '\0';
+      lastLine2[0] = '\0';
+    }
+  } else {
+    if (currentScreen == 1) {
+      showWifiScreen();
+    } else if (currentScreen == 2) {
+      showRelayScreen();
+    }
+
+    if (elapsed >= STATUS_SCREEN_DURATION) {
+      timers.screenChange = now;
+      currentScreen++;
+      lastLine1[0] = '\0';
+      lastLine2[0] = '\0';
+
+      if (currentScreen > 2) {
+        currentScreen = 0;
+        showingTimeScreen = true;
+        lastSecond = 255;
+      }
+    }
+  }
+}
+
+// ============================================
+// MQTT HANDLERS
+// ============================================
+void onMqttMessage(char* topic, byte* payload, unsigned int length) {
+  StaticJsonDocument<512> doc;
+  DeserializationError err = deserializeJson(doc, payload, length);
+
+  if (err) {
+    LOGF("[MQTT] JSON parse error: %s\n", err.c_str());
+    return;
+  }
+
+  const char* type = doc["type"];
+  LOGF("[MQTT] Received: %s\n", type);
+
+  // CYAN flash on receive
+  ledFlash(COLOR_CYAN, BRIGHT, 2, 100);
+
+  if (strcmp(type, "IMMEDIATE") == 0) {
+    handleImmediate(doc);
+  } else if (strcmp(type, "SCHEDULE") == 0) {
+    handleSchedule(doc);
+  } else if (strcmp(type, "CANCEL") == 0) {
+    handleCancel(doc);
+  } else if (strcmp(type, "STATUS") == 0) {
+    sendHeartbeat();
+  }
+
+  ledOff();
+}
+
+void handleImmediate(JsonDocument& doc) {
+  // FIXED: Use relay_number not relay
+  int relay = doc["relay_number"] | doc["relay"].as<int>();
+  const char* action = doc["action"];
+  const char* cmdId = doc["command_id"];
+
+  LOGF("[Immediate] Relay: %d, Action: %s, CmdId: %s\n", relay, action, cmdId);
+
+  if (relay < 1 || relay > 4) {
+    LOGF("[Immediate] ERROR: Invalid relay number %d\n", relay);
+    sendAck(cmdId, false, "Invalid relay");
+    return;
+  }
+
+  // Show device and action on LCD - CYAN
+  ledSolid(COLOR_CYAN, BRIGHT);
+
+  // Build info string for scrolling
+  char info[48];
+  snprintf(info, 48, "Immediate: %s -> %s", RELAY_NAMES[relay - 1], action);
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Command Received");
+  lcdScrollLine(1, info, 120);  // Fast scroll on line 2
+
+  executeAction(relay, action);
+  sendAck(cmdId, true, "Executed");
+}
+
+void handleSchedule(JsonDocument& doc) {
+  const char* cmdId = doc["command_id"];
+
+  if (scheduleCount >= MAX_SCHEDULES) {
+    sendAck(cmdId, false, "Schedule full");
+    return;
+  }
+
+  Schedule& s = schedules[scheduleCount];
+  strncpy(s.id, cmdId, 39);
+  s.id[39] = '\0';
+  // FIXED: Use relay_number
+  s.relay = doc["relay_number"] | doc["relay"].as<int>();
+  strncpy(s.action, doc["action"], 7);
+  s.action[7] = '\0';
+  // FIXED: Backend sends "scheduled_time", not "execute_at"
+  s.executeAt = doc["scheduled_time"] | doc["execute_at"].as<time_t>();
+  s.active = true;
+  s.countdownStarted = false;
+  scheduleCount++;
+
+  ledFlash(COLOR_CYAN, DULL, 2, 150);
+
+  // Build schedule info string for scrolling
+  struct tm* tm = localtime(&s.executeAt);
+
+  // Convert to 12-hour format
+  int hour12 = tm->tm_hour % 12;
+  if (hour12 == 0) hour12 = 12;
+  const char* ampm = (tm->tm_hour < 12) ? "AM" : "PM";
+
+  char info[48];
+  snprintf(info, 48, "%s -> %s @ %d:%02d %s",
+           RELAY_NAMES[s.relay - 1], s.action,
+           hour12, tm->tm_min, ampm);
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Schedule Added");
+  lcdScrollLine(1, info, 120);  // Fast scroll on line 2
+
+  sendAck(cmdId, true, "Scheduled");
+
+  // Debug: show current time vs scheduled time
+  time_t now;
+  time(&now);
+  LOGF("[Schedule] Added: relay %d, scheduled_time=%ld, current_time=%ld, diff=%ld sec\n",
+       s.relay, (long)s.executeAt, (long)now, (long)(s.executeAt - now));
+
+  ledOff();
+  lastLine1[0] = '\0';
+  lastLine2[0] = '\0';
+}
+
+void handleCancel(JsonDocument& doc) {
+  const char* cmdId = doc["command_id"];
+
+  for (int i = 0; i < scheduleCount; i++) {
+    if (strcmp(schedules[i].id, cmdId) == 0) {
+      schedules[i].active = false;
+      sendAck(cmdId, true, "Cancelled");
+      return;
+    }
+  }
+  sendAck(cmdId, false, "Not found");
+}
+
+// ============================================
+// ACTION EXECUTION
+// ============================================
+void executeAction(int relay, const char* action) {
+  if (relay < 1 || relay > 4) {
+    LOGF("[Relay] Invalid relay: %d\n", relay);
+    return;
+  }
+
+  int idx = relay - 1;
+  bool newState;
+
+  if (strcmp(action, "on") == 0) {
+    newState = true;
+  } else if (strcmp(action, "off") == 0) {
+    newState = false;
+  } else if (strcmp(action, "toggle") == 0) {
+    newState = !state.relays[idx];
+  } else {
+    LOGF("[Relay] Invalid action: %s\n", action);
+    return;
+  }
+
+  state.relays[idx] = newState;
+  digitalWrite(RELAY_PINS[idx], newState ? LOW : HIGH);
+
+  LOGF("[Relay] %s (GPIO %d) = %s\n",
+       RELAY_NAMES[idx], RELAY_PINS[idx],
+       newState ? "ON" : "OFF");
+
+  // Display result
+  char line1[17], line2[17];
+  snprintf(line1, 17, "%s", RELAY_NAMES[idx]);
+  snprintf(line2, 17, "Switched %s", newState ? "ON" : "OFF");
+  lcdShowForce(line1, line2);
+
+  // GREEN BRIGHT 2 seconds, then OFF
+  ledSolid(COLOR_GREEN, BRIGHT);
+  delay(2000);
+  ledOff();
+
+  // Reset screen state
+  lastLine1[0] = '\0';
+  lastLine2[0] = '\0';
+}
+
+void executeScheduledAction(int relay, const char* action, const char* cmdId) {
+  executeAction(relay, action);
+  sendExecuted(cmdId, relay, action);
+}
+
+// ============================================
+// SCHEDULE CHECK
+// ============================================
+void checkSchedules() {
+  time_t now;
+  time(&now);
+
+  for (int i = 0; i < scheduleCount; i++) {
+    Schedule& s = schedules[i];
+    if (!s.active) continue;
+
+    long diff = s.executeAt - now;
+
+    if (diff <= 5 && diff > 0 && !s.countdownStarted) {
+      s.countdownStarted = true;
+      LOGF("[Schedule] Countdown for relay %d\n", s.relay);
+
+      // 5 second RED rapid blink countdown
+      for (int sec = diff; sec > 0; sec--) {
+        ledStartBlink(COLOR_RED, BRIGHT, 100);
+
+        char line1[17], line2[17];
+        snprintf(line1, 17, "Action in %d...", sec);
+        snprintf(line2, 17, "%s -> %s", RELAY_NAMES[s.relay - 1], s.action);
+        lcdShowForce(line1, line2);
+
+        unsigned long start = millis();
+        while (millis() - start < 1000) {
+          ledUpdate();
+          delay(50);
+        }
+      }
+
+      executeScheduledAction(s.relay, s.action, s.id);
+      s.active = false;
+    }
+    else if (diff <= 0) {
+      LOGF("[Schedule] Executing (past due) relay %d\n", s.relay);
+      executeScheduledAction(s.relay, s.action, s.id);
+      s.active = false;
+    }
+  }
+
+  // Cleanup
+  int writeIdx = 0;
+  for (int i = 0; i < scheduleCount; i++) {
+    if (schedules[i].active) {
+      if (writeIdx != i) schedules[writeIdx] = schedules[i];
+      writeIdx++;
+    }
+  }
+  scheduleCount = writeIdx;
+}
+
+// ============================================
+// MQTT MESSAGES
+// ============================================
+void sendHeartbeat() {
+  StaticJsonDocument<512> doc;  // Increased from 256 to fit all relay data
+  doc["type"] = "HEARTBEAT";
+  doc["device_id"] = DEVICE_ID;
+  doc["online"] = true;
+  doc["wifi_rssi"] = WiFi.RSSI();
+  doc["free_heap"] = ESP.getFreeHeap();
+  doc["uptime"] = millis() / 1000;
+
+  JsonArray relays = doc.createNestedArray("relays");
+  for (int i = 0; i < 4; i++) {
+    JsonObject r = relays.createNestedObject();
+    r["number"] = i + 1;
+    r["name"] = RELAY_NAMES[i];
+    r["state"] = state.relays[i] ? "on" : "off";
+  }
+
+  char buffer[512];  // Increased from 256
+  serializeJson(doc, buffer);
+  mqtt.publish(MQTT_TOPIC_STATUS, buffer);
+  LOG("[MQTT] Heartbeat sent");
+}
+
+void sendAck(const char* cmdId, bool success, const char* msg) {
+  StaticJsonDocument<128> doc;
+  doc["type"] = "ACK";
+  doc["command_id"] = cmdId;
+  doc["success"] = success;
+  doc["message"] = msg;
+
+  char buffer[128];
+  serializeJson(doc, buffer);
+  mqtt.publish(MQTT_TOPIC_ACK, buffer);
+}
+
+void sendExecuted(const char* cmdId, int relay, const char* action) {
+  StaticJsonDocument<128> doc;
+  doc["type"] = "EXECUTED";
+  doc["command_id"] = cmdId;
+  doc["relay"] = relay;
+  doc["action"] = action;
+
+  char buffer[128];
+  serializeJson(doc, buffer);
+  mqtt.publish(MQTT_TOPIC_STATUS, buffer);
+}
+
+// ============================================
+// CONNECTION CHECK
+// ============================================
+void checkWiFi() {
+  bool connected = (WiFi.status() == WL_CONNECTED);
+
+  if (!connected && state.wifiConnected) {
+    state.wifiConnected = false;
+    state.mqttConnected = false;
+
+    LOG("[WiFi] Lost!");
+    ledStartBlink(COLOR_BLUE, DULL, 300);
+    lcdShowForce("! WiFi Lost", "Reconnecting...");
+
+    WiFi.disconnect();
+    delay(1000);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  } else if (connected && !state.wifiConnected) {
+    state.wifiConnected = true;
+    WiFi.setSleep(false);
+    esp_wifi_set_ps(WIFI_PS_NONE);
+
+    ledSolid(COLOR_BLUE, BRIGHT);
+    lcdShowForce("WiFi Restored", WiFi.localIP().toString().c_str());
+    LOG("[WiFi] Reconnected");
+    delay(1500);
+
+    ledOff();
+    lastLine1[0] = '\0';
+    lastLine2[0] = '\0';
+  }
+}
+
+void reconnectMQTT() {
+  if (!state.wifiConnected || mqtt.connected()) return;
+
+  LOG("[MQTT] Reconnecting...");
+  ledStartBlink(COLOR_MAGENTA, DULL, 300);
+  lcdShowForce("MQTT Reconnect", "Please wait...");
+
+  String clientId = "esp32-" + String(random(0xffff), HEX);
+
+  if (mqtt.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
+    mqtt.subscribe(MQTT_TOPIC_COMMANDS);
+    state.mqttConnected = true;
+
+    // Magenta bright 1s
+    ledSolid(COLOR_MAGENTA, BRIGHT);
+    lcdShowForce("MQTT Connected", DEVICE_ID);
+    delay(1000);
+
+    // Green bright 2s
+    ledSolid(COLOR_GREEN, BRIGHT);
+    lcdShowForce("MQTT Ready!", "Subscribed OK");
+    delay(2000);
+
+    LOG("[MQTT] Reconnected");
+    ledOff();
+    lastLine1[0] = '\0';
+    lastLine2[0] = '\0';
+  } else {
+    state.mqttConnected = false;
+    LOGF("[MQTT] Failed rc=%d\n", mqtt.state());
+  }
+}
+
+// ============================================
+// SETUP
 // ============================================
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  Serial.println("\n========================================");
-  Serial.println("Evolution Todo - IoT Controller");
-  Serial.println("========================================");
+  LOG("\n========================================");
+  LOG("Evolution Todo - IoT Controller v2.6");
+  LOG("========================================\n");
 
-  // Initialize components
-  setupRelays();
-  #if LCD_ENABLED
-  setupLCD();
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Evolution Todo");
-  lcd.setCursor(0, 1);
-  lcd.print("IoT Controller");
-  delay(2000);
-  #endif
+  initRelays();
 
-  setupWiFi();
-  setupTime();
-  setupMQTT();
+  if (!initLCD()) {
+    LOG("[FATAL] LCD init failed!");
+    ledStartBlink(COLOR_RED, BRIGHT, 200);
+    while(1) { ledUpdate(); delay(10); }
+  }
 
-  // Load saved schedules from NVS
-  loadSchedulesFromNVS();
+  initWiFi();
+  initTime();
+  initMQTT();
+  initComplete();
 
-  #if LCD_ENABLED
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Ready!");
-  lcd.setCursor(0, 1);
-  lcd.print("Schedules: ");
-  lcd.print(scheduleCount);
-  delay(2000);
-  #endif
-
-  Serial.println("Setup complete!");
-  Serial.println("Waiting for MQTT commands...");
+  LOG("\n========================================");
+  LOG("Setup Complete!");
+  LOG("========================================\n");
 }
 
 // ============================================
-// Main Loop
+// LOOP
 // ============================================
 void loop() {
-  // Maintain MQTT connection
-  if (!mqtt.connected()) {
-    reconnectMQTT();
-  }
-  mqtt.loop();
-
   unsigned long now = millis();
 
-  // Check schedules every second
-  if (now - lastScheduleCheck >= SCHEDULE_CHECK_MS) {
-    lastScheduleCheck = now;
-    if (timeInitialized) {
-      checkSchedules();
+  ledUpdate();
+
+  if (now - timers.wifiCheck >= WIFI_CHECK_INTERVAL) {
+    timers.wifiCheck = now;
+    checkWiFi();
+  }
+
+  if (state.wifiConnected) {
+    if (mqtt.connected()) {
+      mqtt.loop();
+      state.mqttConnected = true;
+    } else {
+      state.mqttConnected = false;
+      if (now - timers.mqttReconnect >= MQTT_RECONNECT_INTERVAL) {
+        timers.mqttReconnect = now;
+        reconnectMQTT();
+      }
     }
   }
 
-  // Send heartbeat
-  if (now - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
-    lastHeartbeat = now;
+  if (state.mqttConnected && (now - timers.heartbeat >= HEARTBEAT_INTERVAL)) {
+    timers.heartbeat = now;
     sendHeartbeat();
   }
 
-  // Update LCD display
-  #if LCD_ENABLED
-  if (now - lastLcdUpdate >= LCD_UPDATE_MS) {
-    lastLcdUpdate = now;
-    updateLCD();
-  }
-  #endif
-
-  // Sync NTP periodically
-  if (now - lastNtpSync >= NTP_SYNC_INTERVAL_MS) {
-    lastNtpSync = now;
-    configTime(GMT_OFFSET, DST_OFFSET, NTP_SERVER);
-  }
-}
-
-// ============================================
-// WiFi Setup
-// ============================================
-void setupWiFi() {
-  Serial.print("Connecting to WiFi: ");
-  Serial.println(WIFI_SSID);
-
-  #if LCD_ENABLED
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Connecting WiFi");
-  #endif
-
-  WiFi.mode(WIFI_STA);
-
-  // Set WiFi country for better compatibility
-  wifi_country_t country = {
-    .cc = "PK",        // Pakistan (change to your country code)
-    .schan = 1,
-    .nchan = 13,
-    .policy = WIFI_COUNTRY_POLICY_MANUAL
-  };
-  esp_wifi_set_country(&country);
-
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
-    delay(500);
-    Serial.print(".");
-    #if LCD_ENABLED
-    lcd.setCursor(attempts % 16, 1);
-    lcd.print(".");
-    #endif
-    attempts++;
+  if (state.timeSync && (now - timers.scheduleCheck >= SCHEDULE_CHECK_INTERVAL)) {
+    timers.scheduleCheck = now;
+    checkSchedules();
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi connected!");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-
-    #if LCD_ENABLED
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi Connected!");
-    lcd.setCursor(0, 1);
-    lcd.print(WiFi.localIP());
-    delay(2000);
-    #endif
-  } else {
-    Serial.println("\nWiFi connection failed!");
-    #if LCD_ENABLED
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi Failed!");
-    lcd.setCursor(0, 1);
-    lcd.print("Offline Mode");
-    delay(2000);
-    #endif
-  }
-}
-
-// ============================================
-// MQTT Setup
-// ============================================
-void setupMQTT() {
-  // Use insecure client for HiveMQ Cloud (skip cert verification for demo)
-  espClient.setInsecure();
-
-  mqtt.setServer(MQTT_BROKER, MQTT_PORT);
-  mqtt.setCallback(mqttCallback);
-  mqtt.setBufferSize(1024);  // Increase buffer for JSON messages
-
-  Serial.print("MQTT Broker: ");
-  Serial.println(MQTT_BROKER);
-}
-
-void reconnectMQTT() {
-  if (WiFi.status() != WL_CONNECTED) {
-    return;  // Can't connect MQTT without WiFi
+  if (!state.timeSync && state.wifiConnected && (now - timers.ntpRetry >= NTP_RETRY_INTERVAL)) {
+    timers.ntpRetry = now;
+    initTime();
   }
 
-  int attempts = 0;
-  while (!mqtt.connected() && attempts < 3) {
-    Serial.print("Connecting to MQTT...");
-
-    String clientId = "ESP32-" + String(DEVICE_ID) + "-" + String(random(0xffff), HEX);
-
-    if (mqtt.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
-      Serial.println("connected!");
-
-      // Subscribe to command topic
-      mqtt.subscribe(MQTT_TOPIC_COMMANDS);
-      Serial.print("Subscribed to: ");
-      Serial.println(MQTT_TOPIC_COMMANDS);
-
-      // Send initial status
-      sendStatus();
-
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(mqtt.state());
-      Serial.println(" retrying in 5 seconds");
-      delay(5000);
-      attempts++;
-    }
+  if (state.allReady) {
+    updateScreen();
   }
-}
-
-// ============================================
-// MQTT Callback
-// ============================================
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message received [");
-  Serial.print(topic);
-  Serial.print("]: ");
-
-  // Convert payload to string
-  char message[length + 1];
-  memcpy(message, payload, length);
-  message[length] = '\0';
-  Serial.println(message);
-
-  // Parse JSON
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, message);
-
-  if (error) {
-    Serial.print("JSON parse error: ");
-    Serial.println(error.c_str());
-    return;
-  }
-
-  processCommand(doc);
-}
-
-// ============================================
-// Process Command
-// ============================================
-void processCommand(JsonDocument& doc) {
-  const char* type = doc["type"];
-  const char* commandId = doc["command_id"] | "unknown";
-
-  Serial.print("Command type: ");
-  Serial.println(type);
-
-  if (strcmp(type, "IMMEDIATE") == 0) {
-    // Execute immediately
-    int relay = doc["relay_number"];
-    const char* action = doc["action"];
-
-    if (relay >= 1 && relay <= 4) {
-      if (strcmp(action, "on") == 0) {
-        setRelay(relay, true);
-      } else if (strcmp(action, "off") == 0) {
-        setRelay(relay, false);
-      } else if (strcmp(action, "toggle") == 0) {
-        toggleRelay(relay);
-      }
-      sendAck(commandId, true, "Executed immediately");
-      sendStatus();
-    } else {
-      sendAck(commandId, false, "Invalid relay number");
-    }
-
-  } else if (strcmp(type, "SCHEDULE") == 0) {
-    // Add to schedule
-    int relay = doc["relay_number"];
-    const char* action = doc["action"];
-    uint32_t execTime = doc["scheduled_time"];
-    const char* deviceName = doc["device_name"] | relayNames[relay - 1];
-
-    int actionNum = 0;
-    if (strcmp(action, "on") == 0) actionNum = 1;
-    else if (strcmp(action, "toggle") == 0) actionNum = 2;
-
-    addSchedule(commandId, relay, actionNum, execTime, deviceName);
-    sendAck(commandId, true, "Schedule added");
-
-  } else if (strcmp(type, "CANCEL") == 0) {
-    // Cancel scheduled command
-    cancelSchedule(commandId);
-    sendAck(commandId, true, "Schedule cancelled");
-
-  } else if (strcmp(type, "SYNC_REQ") == 0) {
-    // Send all schedules
-    sendStatus();
-
-  } else if (strcmp(type, "STATUS_REQ") == 0) {
-    // Send current relay states
-    sendStatus();
-
-  } else {
-    sendAck(commandId, false, "Unknown command type");
-  }
-}
-
-// ============================================
-// Relay Control
-// ============================================
-void setupRelays() {
-  for (int i = 0; i < 4; i++) {
-    pinMode(relayPins[i], OUTPUT);
-    digitalWrite(relayPins[i], HIGH);  // Active LOW - HIGH = OFF
-    relayStates[i] = false;
-  }
-  Serial.println("Relays initialized (all OFF)");
-}
-
-void setRelay(int relayNum, bool state) {
-  if (relayNum < 1 || relayNum > 4) return;
-
-  int idx = relayNum - 1;
-  relayStates[idx] = state;
-
-  // Active LOW: LOW = ON, HIGH = OFF
-  digitalWrite(relayPins[idx], state ? LOW : HIGH);
-
-  Serial.print("Relay ");
-  Serial.print(relayNum);
-  Serial.print(" (");
-  Serial.print(relayNames[idx]);
-  Serial.print("): ");
-  Serial.println(state ? "ON" : "OFF");
-
-  // Update LCD immediately
-  #if LCD_ENABLED
-  updateLCD();
-  #endif
-}
-
-void toggleRelay(int relayNum) {
-  if (relayNum < 1 || relayNum > 4) return;
-  setRelay(relayNum, !relayStates[relayNum - 1]);
-}
-
-// ============================================
-// Schedule Management
-// ============================================
-void addSchedule(const char* cmdId, int relay, int action, uint32_t execTime, const char* name) {
-  // Find empty slot
-  int slot = -1;
-  for (int i = 0; i < MAX_SCHEDULES; i++) {
-    if (!schedules[i].active) {
-      slot = i;
-      break;
-    }
-  }
-
-  if (slot == -1) {
-    Serial.println("Schedule storage full!");
-    return;
-  }
-
-  strncpy(schedules[slot].commandId, cmdId, 39);
-  schedules[slot].commandId[39] = '\0';
-  schedules[slot].relayNumber = relay;
-  schedules[slot].action = action;
-  schedules[slot].executeAt = execTime;
-  strncpy(schedules[slot].deviceName, name, 19);
-  schedules[slot].deviceName[19] = '\0';
-  schedules[slot].active = true;
-  schedules[slot].executed = false;
-
-  scheduleCount++;
-
-  Serial.print("Schedule added: ");
-  Serial.print(name);
-  Serial.print(" at ");
-  Serial.println(formatTime(execTime));
-
-  saveSchedulesToNVS();
-}
-
-void cancelSchedule(const char* cmdId) {
-  for (int i = 0; i < MAX_SCHEDULES; i++) {
-    if (schedules[i].active && strcmp(schedules[i].commandId, cmdId) == 0) {
-      schedules[i].active = false;
-      scheduleCount--;
-      Serial.print("Schedule cancelled: ");
-      Serial.println(cmdId);
-      saveSchedulesToNVS();
-      return;
-    }
-  }
-  Serial.print("Schedule not found: ");
-  Serial.println(cmdId);
-}
-
-void checkSchedules() {
-  time_t now;
-  time(&now);
-
-  for (int i = 0; i < MAX_SCHEDULES; i++) {
-    if (schedules[i].active && !schedules[i].executed) {
-      if (now >= schedules[i].executeAt) {
-        // Execute this schedule
-        Serial.print("Executing schedule: ");
-        Serial.println(schedules[i].deviceName);
-
-        int relay = schedules[i].relayNumber;
-        switch (schedules[i].action) {
-          case 0: setRelay(relay, false); break;  // OFF
-          case 1: setRelay(relay, true); break;   // ON
-          case 2: toggleRelay(relay); break;      // TOGGLE
-        }
-
-        // Mark as executed
-        schedules[i].executed = true;
-        schedules[i].active = false;
-        scheduleCount--;
-
-        // Send execution confirmation
-        JsonDocument doc;
-        doc["type"] = "EXECUTED";
-        doc["command_id"] = schedules[i].commandId;
-        doc["relay_number"] = relay;
-        doc["state"] = relayStates[relay - 1] ? "on" : "off";
-        doc["executed_at"] = (long)now;
-        doc["success"] = true;
-
-        char buffer[256];
-        serializeJson(doc, buffer);
-        mqtt.publish(MQTT_TOPIC_STATUS, buffer);
-
-        saveSchedulesToNVS();
-      }
-    }
-  }
-}
-
-// ============================================
-// MQTT Messages
-// ============================================
-void sendStatus() {
-  JsonDocument doc;
-  doc["type"] = "STATUS";
-  doc["device_id"] = DEVICE_ID;
-  doc["device_name"] = DEVICE_NAME;
-
-  JsonArray relays = doc["relays"].to<JsonArray>();
-  for (int i = 0; i < 4; i++) {
-    JsonObject relay = relays.add<JsonObject>();
-    relay["number"] = i + 1;
-    relay["name"] = relayNames[i];
-    relay["state"] = relayStates[i] ? "on" : "off";
-  }
-
-  doc["schedule_count"] = scheduleCount;
-  doc["wifi_rssi"] = WiFi.RSSI();
-
-  time_t now;
-  time(&now);
-  doc["timestamp"] = (long)now;
-
-  char buffer[512];
-  serializeJson(doc, buffer);
-  mqtt.publish(MQTT_TOPIC_STATUS, buffer);
-
-  Serial.println("Status sent");
-}
-
-void sendAck(const char* cmdId, bool success, const char* message) {
-  JsonDocument doc;
-  doc["type"] = "ACK";
-  doc["command_id"] = cmdId;
-  doc["success"] = success;
-  doc["message"] = message;
-
-  time_t now;
-  time(&now);
-  doc["timestamp"] = (long)now;
-
-  char buffer[256];
-  serializeJson(doc, buffer);
-  mqtt.publish(MQTT_TOPIC_ACK, buffer);
-}
-
-void sendHeartbeat() {
-  JsonDocument doc;
-  doc["type"] = "HEARTBEAT";
-  doc["device_id"] = DEVICE_ID;
-  doc["uptime_ms"] = millis();
-  doc["wifi_rssi"] = WiFi.RSSI();
-  doc["free_heap"] = ESP.getFreeHeap();
-  doc["schedule_count"] = scheduleCount;
-
-  time_t now;
-  time(&now);
-  doc["timestamp"] = (long)now;
-
-  char buffer[256];
-  serializeJson(doc, buffer);
-  mqtt.publish(MQTT_TOPIC_STATUS, buffer);
-
-  Serial.println("Heartbeat sent");
-}
-
-// ============================================
-// LCD Display
-// ============================================
-#if LCD_ENABLED
-void setupLCD() {
-  Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
-  lcd.init();
-  lcd.backlight();
-  Serial.println("LCD initialized");
-}
-
-void updateLCD() {
-  lcd.clear();
-
-  // Line 1: Current time and connection status
-  lcd.setCursor(0, 0);
-  if (timeInitialized) {
-    lcd.print(getTimeString());
-  } else {
-    lcd.print("No Time Sync");
-  }
-
-  // Connection indicator
-  lcd.setCursor(14, 0);
-  if (mqtt.connected()) {
-    lcd.print("OK");
-  } else if (WiFi.status() == WL_CONNECTED) {
-    lcd.print("WF");  // WiFi only
-  } else {
-    lcd.print("--");  // Offline
-  }
-
-  // Line 2: Relay states
-  lcd.setCursor(0, 1);
-  for (int i = 0; i < 4; i++) {
-    lcd.print(i + 1);
-    lcd.print(":");
-    lcd.print(relayStates[i] ? "ON " : "OFF");
-    if (i < 3) lcd.print(" ");
-  }
-}
-#endif
-
-// ============================================
-// NVS Storage
-// ============================================
-void saveSchedulesToNVS() {
-  preferences.begin("schedules", false);
-
-  // Save schedule count
-  preferences.putInt("count", scheduleCount);
-
-  // Save each active schedule
-  int savedCount = 0;
-  for (int i = 0; i < MAX_SCHEDULES && savedCount < scheduleCount; i++) {
-    if (schedules[i].active) {
-      String key = "sch_" + String(savedCount);
-
-      // Pack schedule into bytes
-      uint8_t data[64];
-      memcpy(data, schedules[i].commandId, 40);
-      data[40] = schedules[i].relayNumber;
-      data[41] = schedules[i].action;
-      memcpy(data + 42, &schedules[i].executeAt, 4);
-      memcpy(data + 46, schedules[i].deviceName, 18);
-
-      preferences.putBytes(key.c_str(), data, 64);
-      savedCount++;
-    }
-  }
-
-  preferences.end();
-  Serial.print("Saved ");
-  Serial.print(savedCount);
-  Serial.println(" schedules to NVS");
-}
-
-void loadSchedulesFromNVS() {
-  preferences.begin("schedules", true);  // Read-only
-
-  scheduleCount = preferences.getInt("count", 0);
-
-  for (int i = 0; i < scheduleCount && i < MAX_SCHEDULES; i++) {
-    String key = "sch_" + String(i);
-
-    uint8_t data[64];
-    if (preferences.getBytes(key.c_str(), data, 64) == 64) {
-      memcpy(schedules[i].commandId, data, 40);
-      schedules[i].relayNumber = data[40];
-      schedules[i].action = data[41];
-      memcpy(&schedules[i].executeAt, data + 42, 4);
-      memcpy(schedules[i].deviceName, data + 46, 18);
-      schedules[i].deviceName[19] = '\0';
-      schedules[i].active = true;
-      schedules[i].executed = false;
-    }
-  }
-
-  preferences.end();
-  Serial.print("Loaded ");
-  Serial.print(scheduleCount);
-  Serial.println(" schedules from NVS");
-}
-
-// ============================================
-// Time Functions
-// ============================================
-void setupTime() {
-  #if LCD_ENABLED
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Syncing time...");
-  #endif
-
-  configTime(GMT_OFFSET, DST_OFFSET, NTP_SERVER);
-
-  Serial.print("Waiting for NTP time sync...");
-
-  int attempts = 0;
-  time_t now = 0;
-  while (now < 1700000000 && attempts < 20) {  // Wait for valid time (after Nov 2023)
-    delay(500);
-    time(&now);
-    Serial.print(".");
-    attempts++;
-  }
-
-  if (now > 1700000000) {
-    timeInitialized = true;
-    Serial.println("\nTime synchronized!");
-    Serial.print("Current time: ");
-    Serial.println(getTimeString());
-
-    #if LCD_ENABLED
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Time synced!");
-    lcd.setCursor(0, 1);
-    lcd.print(getTimeString());
-    delay(2000);
-    #endif
-  } else {
-    Serial.println("\nTime sync failed!");
-    #if LCD_ENABLED
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Time sync fail");
-    lcd.setCursor(0, 1);
-    lcd.print("Using local");
-    delay(2000);
-    #endif
-  }
-}
-
-String getTimeString() {
-  time_t now;
-  time(&now);
-  struct tm* timeinfo = localtime(&now);
-
-  char buffer[20];
-  sprintf(buffer, "%02d:%02d:%02d",
-          timeinfo->tm_hour,
-          timeinfo->tm_min,
-          timeinfo->tm_sec);
-  return String(buffer);
-}
-
-String formatTime(uint32_t timestamp) {
-  time_t t = timestamp;
-  struct tm* timeinfo = localtime(&t);
-
-  char buffer[20];
-  sprintf(buffer, "%02d:%02d %02d/%02d",
-          timeinfo->tm_hour,
-          timeinfo->tm_min,
-          timeinfo->tm_mday,
-          timeinfo->tm_mon + 1);
-  return String(buffer);
 }

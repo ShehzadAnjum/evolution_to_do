@@ -4,7 +4,7 @@
  * Provides typed functions for all backend API endpoints.
  */
 
-import type { Task, TaskCreate, TaskListResponse, TaskUpdate, Category, CategoryCreate, TaskFilterOptions } from "./types";
+import type { Task, TaskCreate, TaskListResponse, TaskUpdate, Category, CategoryCreate, TaskFilterOptions, DeviceStatus, DeviceCommandRequest, DeviceCommandResponse } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -197,4 +197,55 @@ export async function deleteCategory(token: string, categoryId: string): Promise
     },
     token
   );
+}
+
+// ============================================================
+// Device API Functions (v4.0.0)
+// ============================================================
+
+/**
+ * Get current device status including relay states.
+ */
+export async function getDeviceStatus(token: string): Promise<DeviceStatus> {
+  return fetchApi("/api/devices/status", {}, token);
+}
+
+/**
+ * Send immediate command to device (turn on/off/toggle relay).
+ */
+export async function sendDeviceCommand(
+  token: string,
+  command: DeviceCommandRequest
+): Promise<DeviceCommandResponse> {
+  return fetchApi(
+    "/api/devices/command",
+    {
+      method: "POST",
+      body: JSON.stringify(command),
+    },
+    token
+  );
+}
+
+/**
+ * Get device health status (no auth required).
+ */
+export async function getDeviceHealth(): Promise<{
+  mqtt_connected: boolean;
+  device_online: boolean;
+  last_heartbeat: string | null;
+  wifi_rssi: number | null;
+}> {
+  return fetchApi("/api/devices/health");
+}
+
+/**
+ * Get list of available relays with their current states.
+ */
+export async function getRelays(token: string): Promise<{
+  number: number;
+  name: string;
+  state: 'on' | 'off';
+}[]> {
+  return fetchApi("/api/devices/relays", {}, token);
 }

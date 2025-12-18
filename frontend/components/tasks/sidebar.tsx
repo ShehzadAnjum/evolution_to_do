@@ -5,7 +5,7 @@ import type { Task, Priority, Category, CategoryCreate } from "@/lib/types";
 import { TaskStats } from "./task-stats";
 
 export type FilterView = "all" | "today" | "upcoming" | "completed";
-export type CategoryFilter = "all" | "work" | "personal" | "study" | "shopping" | "general" | string;
+export type CategoryFilter = "all" | "device_schedules" | "work" | "personal" | "study" | "shopping" | "general" | string;
 export type PriorityFilter = "all" | Priority;
 
 // Keep CustomCategory for backward compatibility (will be removed after migration)
@@ -37,8 +37,9 @@ const VIEW_OPTIONS: { value: FilterView; label: string; icon: string }[] = [
 
 const CATEGORY_OPTIONS: { value: CategoryFilter; label: string; icon: string }[] = [
   { value: "all", label: "All Categories", icon: "🏷️" },
+  { value: "device_schedules", label: "Device Schedules", icon: "🔌" },
   { value: "work", label: "Work", icon: "💼" },
-  { value: "personal", label: "Personal", icon: "🏠" },
+  { value: "personal", label: "Personal", icon: "👤" },
   { value: "study", label: "Study", icon: "📚" },
   { value: "shopping", label: "Shopping", icon: "🛒" },
   { value: "general", label: "General", icon: "📋" },

@@ -1,14 +1,15 @@
 """Task CRUD endpoints."""
 
 import logging
-from datetime import datetime, UTC, timedelta, date
-from uuid import UUID
+from datetime import datetime, UTC, timedelta, date, time
+from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlmodel import Session, select
 
 from ..deps import get_session, get_current_user_id
 from ...models.task import TaskDB, TaskCreate, TaskRead, TaskUpdate
 from ...services.event_service import get_event_service
+from ...services.mqtt_service import get_mqtt_service, RELAY_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,10 @@ async def create_task(
             detail="Title must be 200 characters or less",
         )
 
-    # Create task with v2.0.0, v3.0.0, v3.1.0 fields
+    # Generate MQTT command ID for device schedules
+    mqtt_command_id = str(uuid4()) if task_data.task_type == "device_schedule" else None
+
+    # Create task with v2.0.0, v3.0.0, v3.1.0, v4.0.0 fields
     task = TaskDB(
         title=task_data.title.strip(),
         description=task_data.description or "",
@@ -158,6 +162,14 @@ async def create_task(
         due_time=task_data.due_time,
         # v3.1.0: Recurring tasks
         recurrence_pattern=task_data.recurrence_pattern or "none",
+        weekday=task_data.weekday,
+        # v4.0.0: Device scheduling fields
+        task_type=task_data.task_type or "regular",
+        device_id=task_data.device_id,
+        relay_number=task_data.relay_number,
+        device_action=task_data.device_action,
+        mqtt_command_id=mqtt_command_id,
+        schedule_synced=False,  # Will be set to True after MQTT publish
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -175,6 +187,54 @@ async def create_task(
                 detail=f"Invalid user ID: {user_id}",
             )
         raise
+
+    # v4.0.0: Send MQTT schedule command for device schedules
+    if task_data.task_type == "device_schedule" and task_data.relay_number and task_data.device_action:
+        mqtt = get_mqtt_service()
+        logger.info(f"Device schedule task created: relay={task_data.relay_number}, action={task_data.device_action}, mqtt_connected={mqtt.is_connected}, due_date={task_data.due_date}, due_time={task_data.due_time}")
+        if mqtt.is_connected and task_data.due_date and task_data.due_time:
+            # Parse due_time string (HH:MM) to time object
+            try:
+                hour, minute = map(int, task_data.due_time.split(":"))
+                due_time_obj = time(hour, minute)
+            except (ValueError, AttributeError):
+                logger.warning(f"Invalid due_time format: {task_data.due_time}")
+                due_time_obj = None
+
+            if due_time_obj:
+                # Calculate scheduled time
+                scheduled_dt = datetime.combine(task_data.due_date, due_time_obj)
+                scheduled_unix = int(scheduled_dt.timestamp())
+
+                relay_name = RELAY_NAMES.get(task_data.relay_number, f"Relay {task_data.relay_number}")
+
+                # Send MQTT schedule command
+                result = await mqtt.publish_schedule(
+                    relay_number=task_data.relay_number,
+                    action=task_data.device_action,
+                    scheduled_time=scheduled_unix,
+                    device_name=relay_name,
+                )
+
+                if result["success"]:
+                    # Mark as synced
+                    task.schedule_synced = True
+                    task.mqtt_command_id = result.get("command_id", mqtt_command_id)
+                    session.add(task)
+                    session.commit()
+                    session.refresh(task)
+                    logger.info(f"Device schedule sent to ESP: {task.id} -> {relay_name} {task_data.device_action} at {scheduled_unix}")
+                else:
+                    logger.warning(f"Failed to send device schedule: {result.get('error')}")
+        else:
+            missing = []
+            if not mqtt.is_connected:
+                missing.append("MQTT not connected")
+            if not task_data.due_date:
+                missing.append("missing due_date")
+            if not task_data.due_time:
+                missing.append("missing due_time")
+            logger.warning(f"Device schedule NOT sent: {', '.join(missing)}")
 
     # Publish task created event (non-blocking)
     event_service = get_event_service()
@@ -270,6 +330,47 @@ async def update_task(
     session.add(task)
     session.commit()
     session.refresh(task)
+
+    # v4.0.0: Send MQTT schedule update for device schedules
+    if task.task_type == "device_schedule" and task.relay_number and task.device_action:
+        mqtt = get_mqtt_service()
+        if mqtt.is_connected and task.due_date and task.due_time:
+            # Parse due_time string (HH:MM) to time object
+            try:
+                hour, minute = map(int, task.due_time.split(":"))
+                due_time_obj = time(hour, minute)
+            except (ValueError, AttributeError):
+                logger.warning(f"Invalid due_time format: {task.due_time}")
+                due_time_obj = None
+
+            if due_time_obj:
+                # Calculate scheduled time
+                scheduled_dt = datetime.combine(task.due_date, due_time_obj)
+                scheduled_unix = int(scheduled_dt.timestamp())
+
+                relay_name = RELAY_NAMES.get(task.relay_number, f"Relay {task.relay_number}")
+
+                # Cancel old schedule first (if exists), then add new one
+                if task.mqtt_command_id:
+                    await mqtt.cancel_schedule(task.mqtt_command_id)
+
+                # Send updated MQTT schedule command
+                result = await mqtt.publish_schedule(
+                    relay_number=task.relay_number,
+                    action=task.device_action,
+                    scheduled_time=scheduled_unix,
+                    device_name=relay_name,
+                )
+
+                if result["success"]:
+                    task.schedule_synced = True
+                    task.mqtt_command_id = result.get("command_id", task.mqtt_command_id)
+                    session.add(task)
+                    session.commit()
+                    session.refresh(task)
+                    logger.info(f"Device schedule updated: {task.id} -> {relay_name} {task.device_action} at {scheduled_unix}")
+                else:
+                    logger.warning(f"Failed to update device schedule: {result.get('error')}")
 
     # Publish task updated event (non-blocking)
     event_service = get_event_service()

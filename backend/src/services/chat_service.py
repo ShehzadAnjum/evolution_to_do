@@ -8,7 +8,7 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 from sqlmodel import Session, select
@@ -153,9 +153,18 @@ def get_language_prefix(language: str) -> str:
         return "[USER LANGUAGE: URDU SCRIPT - You MUST respond in Urdu script (اردو)]\n"
 
 def get_system_prompt() -> str:
-    """Generate system prompt with current date."""
-    today = datetime.utcnow().strftime("%Y-%m-%d")
-    return f"""You are a bilingual task management assistant. TODAY: {today}
+    """Generate system prompt with current date and time."""
+    # Use local time (server timezone) for accurate time calculations
+    # This assumes server is in same timezone as user (PKT for this project)
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
+    current_time = now.strftime("%H:%M")  # 24-hour format
+    return f"""You are a bilingual task management assistant. TODAY: {today}, CURRENT TIME: {current_time}
+
+IMPORTANT TIME RULE: When user says "at 3AM today" or similar:
+- If CURRENT TIME is 01:48 and user says "3AM today", that's FUTURE (3AM > 1:48AM)
+- Compare times properly before saying "time has passed"
+- Only say time passed if the scheduled time is BEFORE current time on the same day
 
 ███████████████████████████████████████████████████████████████████████████████
 █                                                                             █
@@ -380,6 +389,130 @@ RULE 8 - RECURRENCE INFERENCE (DETECT REPEAT PATTERNS):
 │ → add_task(title="Team meeting", recurrence_pattern="weekly", ...)          │
 │                                                                             │
 │ ⚠️ If no recurrence mentioned → recurrence_pattern: "none" (default)        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+
+RULE 9 - IOT DEVICE CONTROL (v4.0.0):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🚨🚨🚨 CRITICAL DECISION RULE - READ FIRST! 🚨🚨🚨                           │
+│                                                                             │
+│ IF message contains ANY time reference (at 3am, at 6pm, 7 baje, shaam ko,  │
+│    tomorrow, kal, daily, har rouz, every friday, etc.)                      │
+│    → ALWAYS use schedule_device (NEVER control_device)                      │
+│                                                                             │
+│ IF message has NO time reference (just "turn on light", "fan off karo")    │
+│    → Use control_device for immediate action                                │
+│                                                                             │
+│ Examples:                                                                   │
+│ - "turn on light" → control_device (no time = immediate)                   │
+│ - "turn on light at 3am" → schedule_device (has time!)                     │
+│ - "fan off karo" → control_device (no time = immediate)                    │
+│ - "3 baje fan off karna" → schedule_device (has time!)                     │
+│ - "light on at 6pm today" → schedule_device (has time!)                    │
+│ - "fishes need light at 3am" → schedule_device (has time!)                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🏠 DEVICE MAPPING (SINGLE DEVICE: esp32-home)                               │
+│                                                                             │
+│ Relay 1 = Light (batii, rooshni, bulb, lamp)                               │
+│ Relay 2 = Fan (pankha, AC, cooler)                                         │
+│ Relay 3 = Aquarium (machli, fish tank, aquarium pump)                      │
+│ Relay 4 = Relay 4 (generic)                                                │
+│                                                                             │
+│ IMMEDIATE CONTROL → Use control_device tool (ONLY when NO time mentioned)  │
+│ ─────────────────────────────────────────────────────                       │
+│ English triggers:                                                           │
+│ - "turn on/off the light/fan/aquarium"                                      │
+│ - "switch on/off [device]", "toggle [device]"                               │
+│ - "light on", "fan off", "turn off everything"                              │
+│                                                                             │
+│ Urdu/Roman Urdu triggers:                                                   │
+│ - "batii on karo", "batii band karo" (turn light on/off)                   │
+│ - "pankha chala do", "pankha band karo" (turn fan on/off)                  │
+│ - "rooshni on kar do", "light off karo"                                    │
+│ - "machli ka pump on karo" (turn aquarium pump on)                         │
+│ - "sab kuch band karo" (turn everything off)                               │
+│                                                                             │
+│ SCHEDULED CONTROL → Use schedule_device tool                                │
+│ ─────────────────────────────────────────────                               │
+│ English triggers:                                                           │
+│ - "turn on light at 6pm", "schedule fan off at 10pm"                       │
+│ - "turn on light at 6pm every day/daily"                                   │
+│ - "every Friday at 7pm turn on aquarium"                                   │
+│ - "tomorrow at 8am turn off fan"                                           │
+│                                                                             │
+│ Urdu/Roman Urdu triggers:                                                   │
+│ - "shaam 6 baje batii on kar dena" (turn on light at 6pm)                  │
+│ - "har rouz 7 baje pankha band karna" (every day at 7pm turn off fan)      │
+│ - "har jumma 6 baje rooshni on karo" (every Friday at 6pm turn on light)   │
+│ - "kal subah 8 baje fan off karna" (tomorrow at 8am turn off fan)          │
+│                                                                             │
+│ DEVICE STATUS → Use device_status tool                                      │
+│ ─────────────────────────────────────                                       │
+│ Triggers:                                                                   │
+│ - "show device status", "what's on?", "device ka status"                   │
+│ - "kya light on hai?", "pankha chal raha hai?"                             │
+│ - "check devices", "show relays"                                           │
+│                                                                             │
+│ MULTI-DEVICE CONTROL → Call control_device 4 times (relay 1,2,3,4)         │
+│ ──────────────────────────────────────────────────────────────────         │
+│ 🚨 IMPORTANT: When user is LEAVING HOME or GOING TO SLEEP → ALL OFF        │
+│ 🚨 IMPORTANT: When user is COMING HOME or WAKING UP → ALL ON               │
+│                                                                             │
+│ ALL OFF triggers - turn off ALL 4 relays (1,2,3,4):                        │
+│ - "going out", "leaving", "leaving home", "stepping out"                   │
+│ - "ghar se bahar", "bahar ja raha", "bahar jaa raha"                       │
+│ - "dooston ke saath", "friends ke saath" (implies going out)               │
+│ - "market ja raha", "office ja raha", "kaam pe ja raha"                    │
+│ - "energy saving", "save energy", "bijli bachao"                           │
+│ - "goodnight", "good night", "sleep mode", "night mode"                    │
+│ - "so raha hoon", "sone ja raha", "raat ho gayi", "neend aa rahi"          │
+│ - "turn everything off", "all off", "sab band karo", "sab kuch band"       │
+│ - Urdu script: "باہر جا رہا", "گھر سے باہر", "سو رہا ہوں"                  │
+│                                                                             │
+│ ALL ON triggers - turn on ALL 4 relays (1,2,3,4):                          │
+│ - "i'm home", "im home", "back home", "reached home"                       │
+│ - "ghar aa gaya", "ghar pohunch gaya", "wapas aa gaya"                     │
+│ - "party time", "party mode", "make it lively", "lets be alive"            │
+│ - "turn everything on", "all on", "sab chalu karo", "sab on karo"          │
+│ - "welcome mode", "awake", "wake up mode", "uth gaya"                      │
+│ - Urdu script: "گھر آ گیا", "واپس آ گیا"                                    │
+│                                                                             │
+│ ⚠️ For multi-device: You MUST call control_device 4 SEPARATE times:        │
+│    1. control_device(relay_number=1, action="off/on")                      │
+│    2. control_device(relay_number=2, action="off/on")                      │
+│    3. control_device(relay_number=3, action="off/on")                      │
+│    4. control_device(relay_number=4, action="off/on")                      │
+│                                                                             │
+│ TIME PARSING:                                                               │
+│ - "6pm" / "6 pm" / "6:00 pm" → "18:00"                                     │
+│ - "morning 7" / "subah 7" / "7 am" → "07:00"                               │
+│ - "shaam" / "evening" → around "18:00"                                      │
+│ - "raat" / "night" → around "21:00"                                        │
+│                                                                             │
+│ WEEKDAY MAPPING (for weekly schedules):                                     │
+│ - somwar/pir = monday, mangal = tuesday, budh = wednesday                   │
+│ - jumerat = thursday, jumma = friday, sanichar/hafta = saturday             │
+│ - itwar = sunday                                                            │
+│                                                                             │
+│ RECURRENCE:                                                                 │
+│ - One-time: no recurrence words → recurrence_pattern: "none"                │
+│ - Daily: "har rouz", "daily", "every day" → recurrence_pattern: "daily"     │
+│ - Weekly: "har jumma", "every friday" → recurrence_pattern: "weekly"        │
+│           + weekday: "friday"                                               │
+│                                                                             │
+│ ⚠️ IMPORTANT: Device schedules create TASKS of type "device_schedule"       │
+│ - These appear in the task list with device icon                            │
+│ - User can see, edit, delete them like regular tasks                        │
+│ - The schedule is ALSO sent to ESP32 for local execution                    │
+│                                                                             │
+│ RESPONSE EXAMPLES:                                                          │
+│ English: "✅ Light turned ON"                                                │
+│ English: "✅ Scheduled: Fan will turn OFF at 6:00 PM daily"                  │
+│ Urdu: "✅ بتی آن ہو گئی"                                                    │
+│ Urdu: "✅ شیڈول: پنکھا روزانہ شام ۶ بجے بند ہو جائے گا"                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -652,6 +785,9 @@ You have access to the following tools:
 - complete_task: Mark a task as complete or toggle its status
 - search_tasks: Search tasks by keyword
 - clear_completed_tasks: Delete all completed tasks to clean up the list
+- control_device: Turn IoT device relay ON/OFF/TOGGLE immediately (relay 1=Light, 2=Fan, 3=Aquarium, 4=Relay4)
+- schedule_device: Schedule device action for future time (creates device_schedule task + sends to ESP32)
+- device_status: Get current device status including relay states and online/offline status
 
 IMPORTANT RULES when creating tasks:
 
@@ -922,7 +1058,7 @@ class ChatService:
             self.db.add(final_message)
 
         # Update conversation timestamp
-        conversation.updated_at = datetime.utcnow()
+        conversation.updated_at = datetime.now(UTC)
         self.db.commit()
 
         # Log final response and detect language
@@ -1022,6 +1158,9 @@ class ChatService:
             if msg.role == "user":
                 last_user_idx = i
 
+        # Track valid tool_call_ids from assistant messages
+        valid_tool_call_ids: set[str] = set()
+
         # Build messages, adding language prefix to LAST user message only
         for i, msg in enumerate(db_messages):
             if msg.role == "user":
@@ -1038,6 +1177,9 @@ class ChatService:
                 if msg.tool_calls:
                     # Parse tool_calls and convert to OpenAI format
                     tool_calls = json.loads(msg.tool_calls)
+                    # Track valid tool_call_ids
+                    for tc in tool_calls:
+                        valid_tool_call_ids.add(tc["id"])
                     msg_dict["tool_calls"] = [
                         {
                             "id": tc["id"],
@@ -1053,13 +1195,17 @@ class ChatService:
                     ]
                 messages.append(msg_dict)
             elif msg.role == "tool":
-                messages.append(
-                    {
-                        "role": "tool",
-                        "content": msg.content,
-                        "tool_call_id": msg.tool_call_id,
-                    }
-                )
+                # Only include tool messages that have a valid preceding tool_call
+                if msg.tool_call_id and msg.tool_call_id in valid_tool_call_ids:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "content": msg.content,
+                            "tool_call_id": msg.tool_call_id,
+                        }
+                    )
+                else:
+                    logger.warning(f"Skipping orphaned tool message with tool_call_id: {msg.tool_call_id}")
 
         return messages
 
@@ -1092,7 +1238,23 @@ class ChatService:
         Returns:
             Dict with conversations list and total count
         """
-        # Get conversations
+        # First, cleanup empty conversations (with 0 messages)
+        all_convs_stmt = select(Conversation).where(Conversation.user_id == self.user_id)
+        all_convs = self.db.exec(all_convs_stmt).all()
+
+        empty_count = 0
+        for conv in all_convs:
+            msg_count_stmt = select(Message).where(Message.conversation_id == conv.id)
+            msg_count = len(self.db.exec(msg_count_stmt).all())
+            if msg_count == 0:
+                self.db.delete(conv)
+                empty_count += 1
+
+        if empty_count > 0:
+            self.db.commit()
+            logger.info(f"Cleaned up {empty_count} empty conversations for user {self.user_id}")
+
+        # Get conversations (after cleanup)
         statement = (
             select(Conversation)
             .where(Conversation.user_id == self.user_id)

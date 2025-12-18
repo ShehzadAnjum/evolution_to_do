@@ -1,10 +1,10 @@
 # Session Handoff
 
-**Last Updated**: 2025-12-16 (React Query Caching + Task Visualization)
+**Last Updated**: 2025-12-19 (IoT Multi-Device Control + Chat Improvements)
 **Updated By**: AI Assistant (Claude Code)
-**Current Phase**: Phase V - COMPLETE (All Phases Done)
+**Current Phase**: Phase V - COMPLETE (All Phases Done) + IoT Enhancements
 **Current Branch**: main
-**Current Version**: 05.10.007
+**Current Version**: 05.10.008
 
 ---
 
@@ -47,9 +47,89 @@
 - **Complete: Cloud Dapr** - Dapr sidecar + Pub/Sub (Redpanda/in-memory) + State Store
 - **Complete: Cloud-Native Blueprint** - Reusable Intelligence skill (+200 bonus points)
 - **Complete: Capstone Documents** - Phase III, IV, V capstones created
-- **Parked: IoT Prototype** - ESP32 MQTT relay controller (tested, working)
+- **Complete: IoT Prototype** - ESP32 MQTT relay controller with LCD + Serial CLI
 
-### Last Session Summary (2025-12-16 React Query Caching + Task Visualization)
+### Last Session Summary (2025-12-19 IoT Multi-Device Control + Chat UX)
+
+**IoT Multi-Device Control (NEW):**
+- Added multi-device intent detection for "all on" / "all off" scenarios
+- Triggers for ALL OFF: "energy saving", "going out", "ghar se bahar", "dooston ke saath", "goodnight", "so raha hoon"
+- Triggers for ALL ON: "I'm home", "ghar aa gaya", "party time", "make it lively", "welcome mode"
+- LLM calls `control_device` 4 times (relays 1,2,3,4) for multi-device control
+- Added Urdu script patterns: "باہر جا رہا", "گھر سے باہر", "گھر آ گیا"
+
+**Chat System Fixes:**
+1. **Orphaned Tool Messages** - Fixed OpenAI API error 400 by validating tool_call_ids
+2. **Optimistic UI** - User messages appear immediately (rollback on error)
+3. **Time Calculation** - Fixed "3AM today" being treated as past at 01:48 AM
+4. **Empty Conversations** - Auto-delete sessions with 0 messages
+5. **Auto-Scroll** - New messages scroll into view automatically
+6. **Timezone Fix** - Changed `datetime.utcnow()` to `datetime.now(UTC)` for correct timestamps
+
+**Device Scheduling Improvements:**
+- Fixed LLM choosing `control_device` instead of `schedule_device` when time mentioned
+- Added critical decision rule in system prompt
+- Device schedules now appear in task list (added to taskTools array)
+
+**MQTT Status Indicator:**
+- ESP32 status: bright when online, dull when offline
+- Refresh button shows rotating spinner (500ms minimum)
+- 45-second heartbeat timeout for offline detection
+
+**TTS Improvements:**
+- Strip emojis and box-drawing symbols before speech synthesis
+- Added comprehensive Unicode range filtering
+
+**Files Modified:**
+- `backend/src/services/chat_service.py` - Multi-device patterns, time fixes, orphan filtering
+- `backend/src/services/mqtt_service.py` - `is_online` property with heartbeat timeout
+- `backend/src/api/routes/devices.py` - Use computed `is_online` property
+- `backend/src/mcp/server.py` - Clearer tool descriptions
+- `backend/src/mcp/tools/tool_executor.py` - Local time for date comparison
+- `backend/src/models/message.py` - Timezone-aware datetime
+- `backend/src/models/conversation.py` - Timezone-aware datetime
+- `frontend/components/mqtt-status.tsx` - Spinner, bright/dull styling
+- `frontend/components/chat/chatkit-panel.tsx` - Optimistic UI, auto-scroll, device tools
+- `frontend/lib/voice/api.ts` - Emoji/symbol stripping for TTS
+
+---
+
+### Previous Session (2025-12-16 IoT ESP32 Controller Enhancements)
+
+**ESP32 Controller Improvements:**
+- WiFi retry logic (3 attempts on startup)
+- Background retry every 30 seconds for failed WiFi/NTP
+- LCD scrolling status messages (WiFi:OK/FAIL, Time:OK/FAIL, MQTT:OK/FAIL)
+- Alternating display: Time (5s) → Status scroll (5s)
+- NTP server changed to `time.google.com` (more reliable)
+- MQTT health based on connection status (ACK optional)
+- Serial command interface for local control
+
+**Serial Commands Added:**
+```
+relay <1-4> <on|off|toggle>  - Control relay
+all on / all off             - Control all relays
+status                       - Show device status
+time                         - Show/sync time
+wifi                         - Reconnect WiFi
+reboot                       - Restart ESP32
+help                         - Show commands
+```
+
+**RGB LED Discovery (ESP32-S3-WROOM-1 N16R8):**
+- **Issue**: RGB LED not working on 3.3V board (works on 5V)
+- **Root Cause**: Solder bridge labeled "RGB" ships OPEN on clone boards
+- **Fix**: Solder the RGB jumper pad to connect GPIO 48 to LED
+- **Code**: Use `neopixelWrite(48, r, g, b)` - it's a WS2812/NeoPixel
+
+**Files Updated:**
+- `iot/esp32/evolution_iot.ino` - Full controller with LCD + serial CLI
+- `iot/esp32/config.h` - Timing constants + time.google.com
+- `iot/rgb_test/rgb_led_test.ino` - Rainbow demo for RGB LED
+
+---
+
+### Previous Session (2025-12-16 React Query Caching + Task Visualization)
 
 **React Query Chat Caching:**
 - Installed `@tanstack/react-query` and `@tanstack/react-query-persist-client`
@@ -239,6 +319,78 @@ d76d36a feat(notifications): continuous bell ringing for 10 seconds
 82bbca4 feat(notifications): add bell sound and vibration animation
 6b525cd fix(notifications): add debug logging and test button
 42187de feat(phase-v): Advanced features - search, filter, sort, time, notifications, recurring
+```
+
+---
+
+## Reusable Knowledge (ESP32-S3 IoT)
+
+### 1. ESP32-S3 RGB LED Not Working (Clone Boards)
+```
+Issue: RGB LED on ESP32-S3-WROOM-1 N16R8 (dual USB-C) doesn't light up
+Root Cause: Solder bridge labeled "RGB" ships OPEN
+
+Fix: Solder the "RGB" pad near the LED to connect GPIO 48
+
+Code:
+  neopixelWrite(48, 255, 0, 0);  // Red
+  neopixelWrite(48, 0, 255, 0);  // Green
+  neopixelWrite(48, 0, 0, 255);  // Blue
+
+Note: It's a WS2812/NeoPixel - digitalWrite() won't work!
+```
+
+### 2. ESP32 LCD Scrolling Status Pattern
+```cpp
+// Alternating display: Time (5s) → Scroll status (5s)
+if (now - lcdModeStartTime >= TIME_DISPLAY_MS) {
+  lcdStatusMode = (lcdStatusMode == 0) ? 1 : 0;  // Toggle
+  scrollPosition = 0;  // Reset scroll
+}
+
+// Scroll text by rotating string
+for (int i = 0; i < 16; i++) {
+  int idx = (scrollPosition + i) % scrollText.length();
+  displayText += scrollText.charAt(idx);
+}
+scrollPosition++;
+```
+
+### 3. ESP32 Serial Command Parser Pattern
+```cpp
+String serialBuffer = "";
+
+void processSerialCommand() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (serialBuffer.length() > 0) {
+        executeCommand(serialBuffer);
+        serialBuffer = "";
+      }
+    } else {
+      serialBuffer += c;
+    }
+  }
+}
+```
+
+### 4. ESP32 WiFi Retry Pattern
+```cpp
+for (int retry = 1; retry <= MAX_RETRIES; retry++) {
+  WiFi.disconnect(true);  // Clear credentials
+  delay(100);
+  WiFi.begin(SSID, PASSWORD);
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    attempts++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) return;  // Success
+  delay(2000);  // Wait before retry
+}
 ```
 
 ---

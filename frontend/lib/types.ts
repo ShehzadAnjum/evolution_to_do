@@ -2,6 +2,7 @@
  * Type definitions for Phase II - Evolution of Todo
  *
  * v2.0.0: Added priority, category, due_date fields
+ * v4.0.0: Added IoT device scheduling fields
  */
 
 // Priority levels
@@ -9,6 +10,15 @@ export type Priority = 'high' | 'medium' | 'low';
 
 // Recurrence patterns
 export type RecurrencePattern = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+
+// v4.0.0: Task types
+export type TaskType = 'regular' | 'device_schedule';
+
+// v4.0.0: Device actions
+export type DeviceAction = 'on' | 'off' | 'toggle';
+
+// v4.0.0: Weekday for weekly schedules
+export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 // Default categories (users can also use custom categories)
 export type DefaultCategory = 'general' | 'work' | 'personal' | 'study' | 'shopping';
@@ -30,6 +40,14 @@ export interface Task {
   due_time: string | null;
   // v3.1.0: Recurring tasks
   recurrence_pattern: RecurrencePattern;
+  // v4.0.0: Device scheduling fields
+  task_type: TaskType;
+  device_id: string | null;
+  relay_number: number | null;
+  device_action: DeviceAction | null;
+  weekday: Weekday | null;
+  mqtt_command_id: string | null;
+  schedule_synced: boolean;
 }
 
 export interface TaskCreate {
@@ -43,6 +61,12 @@ export interface TaskCreate {
   due_time?: string;
   // v3.1.0: Recurring tasks
   recurrence_pattern?: RecurrencePattern;
+  // v4.0.0: Device scheduling fields
+  task_type?: TaskType;
+  device_id?: string;
+  relay_number?: number;
+  device_action?: DeviceAction;
+  weekday?: Weekday;
 }
 
 export interface TaskUpdate {
@@ -57,6 +81,12 @@ export interface TaskUpdate {
   due_time?: string | null;
   // v3.1.0: Recurring tasks
   recurrence_pattern?: RecurrencePattern;
+  // v4.0.0: Device scheduling fields
+  task_type?: TaskType;
+  device_id?: string | null;
+  relay_number?: number | null;
+  device_action?: DeviceAction | null;
+  weekday?: Weekday | null;
 }
 
 export interface TaskListResponse {
@@ -107,3 +137,41 @@ export interface CategoryCreate {
   name: string;
   icon?: string;
 }
+
+// v4.0.0: IoT Device types
+export interface RelayStatus {
+  number: number;
+  name: string;
+  state: 'on' | 'off';
+}
+
+export interface DeviceStatus {
+  online: boolean;
+  relays: RelayStatus[];
+  last_heartbeat: string | null;
+  wifi_rssi: number | null;
+  last_updated: string | null;
+  mqtt_connected: boolean;
+}
+
+export interface DeviceCommandRequest {
+  relay_number: number;
+  action: DeviceAction;
+}
+
+export interface DeviceCommandResponse {
+  success: boolean;
+  command_id: string | null;
+  relay_name: string | null;
+  action: string | null;
+  message: string;
+  error: string | null;
+}
+
+// Relay name mapping for display
+export const RELAY_NAMES: Record<number, string> = {
+  1: 'Light',
+  2: 'Fan',
+  3: 'Aquarium',
+  4: 'Relay 4',
+};

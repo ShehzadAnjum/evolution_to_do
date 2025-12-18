@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   TaskForm,
   TaskList,
@@ -10,6 +10,7 @@ import {
   PriorityFilter,
 } from "@/components/tasks";
 import { ChatKitPanel } from "@/components/chat";
+import { MqttStatus } from "@/components/mqtt-status";
 import {
   Dialog,
   DialogContent,
@@ -64,15 +65,15 @@ export default function TasksPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatLoadComplete, setChatLoadComplete] = useState(false);
 
-  // Handle chat loading state changes
-  const handleChatLoadingChange = (isLoading: boolean) => {
+  // Handle chat loading state changes - memoized to prevent infinite loops
+  const handleChatLoadingChange = useCallback((isLoading: boolean) => {
     setChatLoading(isLoading);
     if (!isLoading) {
       // Loading just finished - show success message briefly
       setChatLoadComplete(true);
       setTimeout(() => setChatLoadComplete(false), 2500);
     }
-  };
+  }, []);
 
   // Task dialog toggle
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -81,9 +82,17 @@ export default function TasksPage() {
   const [customCategories, setCustomCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
 
+  // Auth token for API calls (including MQTT status)
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
   // Load custom categories from API on mount
   useEffect(() => {
     loadCategories();
+  }, []);
+
+  // Load auth token on mount
+  useEffect(() => {
+    getAuthToken().then(setAuthToken);
   }, []);
 
   // Check notification permission on mount
@@ -220,6 +229,11 @@ export default function TasksPage() {
         result = result.filter(t => t.is_complete);
         break;
       // "all" - no filter
+    }
+
+    // Special handling for device_schedules category - filter by task_type
+    if (activeCategory === "device_schedules") {
+      result = result.filter(t => t.task_type === "device_schedule");
     }
 
     // Category filter
@@ -426,7 +440,9 @@ export default function TasksPage() {
               {activeView === "all" ? "All Tasks" :
                activeView === "today" ? "Today" :
                activeView === "upcoming" ? "Upcoming" : "Completed"}
-              {activeCategory !== "all" && ` • ${activeCategory}`}
+              {activeCategory !== "all" && activeCategory === "device_schedules"
+                ? " • 🔌 Device Schedules"
+                : activeCategory !== "all" ? ` • ${activeCategory}` : ""}
               {activePriority !== "all" && ` • ${activePriority} priority`}
             </h1>
           </div>
@@ -459,6 +475,13 @@ export default function TasksPage() {
                 🔍
               </span>
             </div>
+
+            {/* MQTT Status Indicator */}
+            {authToken && (
+              <div className="hidden sm:block">
+                <MqttStatus token={authToken} />
+              </div>
+            )}
 
             {/* Chat Loading Indicator - shown while loading chat history */}
             {chatLoading && (

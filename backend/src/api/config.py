@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     dapr_enabled: bool = False
     dapr_http_port: str = "3500"
 
+    # MQTT (Phase IV - IoT Device Control)
+    mqtt_broker: str = ""
+    mqtt_port: int = 8883
+    mqtt_username: str = ""
+    mqtt_password: str = ""
+    mqtt_enabled: bool = False
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""

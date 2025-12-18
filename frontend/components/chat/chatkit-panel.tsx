@@ -120,6 +120,23 @@ export const ChatKitPanel = forwardRef<ChatKitPanelRef, ChatKitPanelProps>(
       setIsLoading(true);
       setError(null);
 
+      // Create optimistic user message immediately
+      const tempUserMessageId = `temp-user-${Date.now()}`;
+      const userMessage: ChatMessage = {
+        id: tempUserMessageId,
+        role: "user",
+        content: text,
+        created_at: new Date().toISOString(),
+      };
+
+      // Add user message immediately to show it right away
+      if (activeConversationId) {
+        setLocalMessages(prev => ({
+          ...prev,
+          [activeConversationId]: [...(prev[activeConversationId] || []), userMessage]
+        }));
+      }
+
       try {
         const token = await getAuthToken();
         if (!token) {
@@ -170,13 +187,7 @@ export const ChatKitPanel = forwardRef<ChatKitPanelRef, ChatKitPanelProps>(
           // Invalidate to load the new conversation messages
           queryClient.invalidateQueries({ queryKey: chatKeys.conversation(data.conversation_id) });
         } else if (activeConversationId) {
-          // Add messages optimistically to local state
-          const userMessage: ChatMessage = {
-            id: `temp-user-${Date.now()}`,
-            role: "user",
-            content: text,
-            created_at: new Date().toISOString(),
-          };
+          // Add assistant response to local state
           const assistantMessage: ChatMessage = {
             id: `temp-ai-${Date.now()}`,
             role: "assistant",
@@ -186,7 +197,7 @@ export const ChatKitPanel = forwardRef<ChatKitPanelRef, ChatKitPanelProps>(
 
           setLocalMessages(prev => ({
             ...prev,
-            [activeConversationId]: [...(prev[activeConversationId] || []), userMessage, assistantMessage]
+            [activeConversationId]: [...(prev[activeConversationId] || []), assistantMessage]
           }));
         }
 
@@ -205,7 +216,7 @@ export const ChatKitPanel = forwardRef<ChatKitPanelRef, ChatKitPanelProps>(
 
         // Refresh task list if any task-related tool was called
         if (data.tool_results && data.tool_results.length > 0 && onTasksChanged) {
-          const taskTools = ["add_task", "update_task", "delete_task", "complete_task", "clear_completed_tasks"];
+          const taskTools = ["add_task", "update_task", "delete_task", "complete_task", "clear_completed_tasks", "schedule_device", "control_device"];
           const hasTaskChange = data.tool_results.some((tr) => taskTools.includes(tr.tool));
           if (hasTaskChange) {
             onTasksChanged();
@@ -219,6 +230,13 @@ export const ChatKitPanel = forwardRef<ChatKitPanelRef, ChatKitPanelProps>(
           errorMessage = "Cannot connect to chat service. Please check your connection.";
         }
         setError(errorMessage);
+        // Remove optimistic user message on error
+        if (activeConversationId) {
+          setLocalMessages(prev => ({
+            ...prev,
+            [activeConversationId]: (prev[activeConversationId] || []).filter(m => m.id !== tempUserMessageId)
+          }));
+        }
       } finally {
         setIsLoading(false);
       }
@@ -519,9 +537,17 @@ function ConversationMessages({
   formatMessageTime,
 }: ConversationMessagesProps) {
   const { data: messages = [], isLoading } = useConversationMessages(conversationId);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Combine cached messages with local optimistic messages
   const allMessages = [...messages, ...localMessages];
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [allMessages.length]);
 
   if (isLoading) {
     return (
@@ -589,6 +615,8 @@ function ConversationMessages({
             </div>
           </div>
         ))}
+        {/* Scroll target */}
+        <div ref={messagesEndRef} />
       </div>
     </div>
   );

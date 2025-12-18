@@ -20,8 +20,8 @@
 // ═══════════════════════════════════════════════════════════════════
 export const VERSION = {
   major: 5,
-  feature: 8,
-  patch: 2,
+  feature: 11,
+  patch: 0,
 } as const;
 
 // Computed version strings
@@ -34,6 +34,8 @@ export const APP_VERSION = VERSION_STRING;
 /**
  * Version History (recent):
  *
+ * v05.11.000 - 2025-12-17 - FreeRTOS MQTT task, task auto-complete, sidebar fix
+ * v05.10.007 - 2025-12-16 - ESP32 LCD scroll fix, MQTT update on task edit
  * v05.08.002 - 2025-12-13 - Voice fixes: Language detection, TTS cleanup, strict relevance
  * v05.08.001 - 2025-12-13 - Voice chat: FREE STT (Web Speech) + TTS (Edge TTS)
  * v05.07.016 - 2024-12-12 - Smaller stats + added "3 Days" upcoming count

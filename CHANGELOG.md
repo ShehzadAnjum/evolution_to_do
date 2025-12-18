@@ -13,6 +13,64 @@ Version format: MAJOR.MINOR.PATCH (mm.nnn.ooo)
 
 ---
 
+## [05.11.000] - 2025-12-17
+
+### Added
+- **FreeRTOS MQTT Task**: Dedicated background task for reliable MQTT connection
+  - Runs `mqtt.loop()` every 50ms on Core 1 (separate from WiFi)
+  - Mutex-protected MQTT client access
+  - Automatic reconnection with exponential backoff
+  - 5-minute status logging for monitoring
+- **Task Auto-Complete**: Tasks marked complete when ESP32 executes scheduled device actions
+  - Backend callback from MQTT EXECUTED message
+  - `mark_task_complete_by_command_id()` function in main.py
+- **Device Schedule Category**: Auto-assign "Device Schedules" category for IoT tasks
+  - Category field disabled for device_schedule tasks
+  - Default to "device_schedules" category
+
+### Changed
+- **Sidebar Layout**: Moved "Device Schedules" from Views to Categories section
+  - Better semantic organization
+  - Filters by `task_type === "device_schedule"`
+- **MQTT KeepAlive**: Set to 30 seconds (was default 15)
+- **WiFi Power Saving**: Explicitly disabled at both Arduino and ESP-IDF level
+  - `WiFi.setSleep(false)`
+  - `esp_wifi_set_ps(WIFI_PS_NONE)`
+- **DNS Resolution Fix**: Detect 0.0.0.0 as DNS failure, use fallback IP
+
+### Fixed
+- **MQTT Disconnection Issue**: Root cause was `client.loop()` not called frequently enough
+  - FreeRTOS task ensures 20 calls/second
+  - Research: https://esp32.com/viewtopic.php?t=16109
+- **DNS 0.0.0.0 Bug**: Refresh DNS config before every MQTT reconnect attempt
+
+### Technical Details
+- ESP32 code: `evolution_iot.ino` - 2200+ lines with FreeRTOS task
+- Stack size: 8KB for MQTT task (TLS needs ~6KB)
+- Priority: 5 (higher than main loop)
+
+### Phase
+- Phase V: IoT Device Scheduling (v4.0.0 feature)
+
+---
+
+## [05.10.007] - 2025-12-16
+
+### Fixed
+- ESP32 LCD single scroll cycle (scroll once then return to time)
+- ESP32 schedule display on LCD when receiving SCHEDULE command
+- MQTT update on task edit (not just create)
+
+---
+
+## [05.10.006] - 2025-12-15
+
+### Added
+- Backend MQTT schedule sync on task update
+- ESP32 TIME_DISPLAY_MS increased to 30 seconds
+
+---
+
 ## [05.001.000] - 2025-12-11
 
 ### Added
@@ -261,7 +319,14 @@ Version format: MAJOR.MINOR.PATCH (mm.nnn.ooo)
 
 ## Version History
 
-| Version      | Date       | Phase    | Description                          |
-|--------------|------------|----------|--------------------------------------|
-| 02.001.000   | 2025-12-09 | Phase II | Versioning system implementation     |
+| Version      | Date       | Phase     | Description                          |
+|--------------|------------|-----------|--------------------------------------|
+| 05.11.000    | 2025-12-17 | Phase V   | FreeRTOS MQTT task, stability fix    |
+| 05.10.007    | 2025-12-16 | Phase V   | ESP32 LCD scroll, MQTT task edit     |
+| 05.10.006    | 2025-12-15 | Phase V   | MQTT sync on task update             |
+| 05.001.000   | 2025-12-11 | Phase V   | Kafka + Dapr event-driven local      |
+| 04.001.000   | 2025-12-10 | Phase IV  | Docker + K8s + Helm deployment       |
+| 03.001.000   | 2025-12-10 | Phase III | AI chatbot MCP tools MVP             |
+| 02.004.000   | 2025-12-10 | Phase II  | 14 subagents, 9 skills complete      |
+| 02.001.000   | 2025-12-09 | Phase II  | Versioning system implementation     |
 

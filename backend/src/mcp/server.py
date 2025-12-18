@@ -222,6 +222,87 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                 },
             },
         },
+        # v4.0.0: IoT Device Control Tools
+        {
+            "type": "function",
+            "function": {
+                "name": "control_device",
+                "description": "Control an IoT device IMMEDIATELY (right now). ONLY use when NO time is mentioned. Examples: 'turn on light', 'fan off karo'. Do NOT use if user mentions any time like 'at 3am', '6 baje', 'tomorrow', 'daily'. Maps: light/batii=Relay1, fan/pankha=Relay2, aquarium/machli=Relay3.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "relay_number": {
+                            "type": "integer",
+                            "description": "Relay number (1-4). 1=Light, 2=Fan, 3=Aquarium, 4=Relay4",
+                        },
+                        "action": {
+                            "type": "string",
+                            "enum": ["on", "off", "toggle"],
+                            "description": "Action to perform: on, off, or toggle",
+                        },
+                        "device_name": {
+                            "type": "string",
+                            "description": "Device name if provided (light, fan, aquarium, pankha, batii, etc.)",
+                        },
+                    },
+                    "required": ["action"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "schedule_device",
+                "description": "Schedule a device action for a FUTURE time. ALWAYS use when ANY time is mentioned: 'at 3am', 'at 6pm', '7 baje', 'tomorrow', 'daily', 'har rouz', 'every friday'. Examples: 'turn on light at 3am' → schedule for 03:00, 'fishes need light at 3am today' → schedule for 03:00 today. Supports one-time, daily, and weekly schedules.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "relay_number": {
+                            "type": "integer",
+                            "description": "Relay number (1-4). 1=Light, 2=Fan, 3=Aquarium, 4=Relay4",
+                        },
+                        "action": {
+                            "type": "string",
+                            "enum": ["on", "off", "toggle"],
+                            "description": "Action to perform",
+                        },
+                        "device_name": {
+                            "type": "string",
+                            "description": "Device name if provided (light, fan, aquarium, pankha, batii, etc.)",
+                        },
+                        "due_date": {
+                            "type": "string",
+                            "description": "Date in YYYY-MM-DD format. Defaults to today.",
+                        },
+                        "due_time": {
+                            "type": "string",
+                            "description": "Time in HH:MM 24-hour format (e.g., '18:00' for 6pm)",
+                        },
+                        "recurrence_pattern": {
+                            "type": "string",
+                            "enum": ["none", "daily", "weekly"],
+                            "description": "Recurrence: none (one-time), daily (har rouz), weekly (har hafta/har jumma)",
+                        },
+                        "weekday": {
+                            "type": "string",
+                            "description": "For weekly recurrence: monday, tuesday, wednesday, thursday, friday, saturday, sunday. Maps: jumma=friday, hafta=week, somwar=monday, mangal=tuesday, budh=wednesday, jumerat=thursday, sanichar=saturday, itwar=sunday",
+                        },
+                    },
+                    "required": ["action", "due_time"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "device_status",
+                "description": "Get current status of the IoT device including relay states (on/off), online/offline status, and WiFi signal strength. Use for 'show device status', 'kya light on hai?', 'device ka status dikhao'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+        },
     ]
 
 

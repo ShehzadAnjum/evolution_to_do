@@ -4,7 +4,7 @@ This module defines the Conversation model for storing chat sessions.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -23,8 +23,8 @@ class Conversation(ConversationBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: str = Field(index=True, description="Owner user ID")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ConversationCreate(SQLModel):
