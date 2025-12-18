@@ -456,35 +456,67 @@ RULE 9 - IOT DEVICE CONTROL (v4.0.0):
 │ - "kya light on hai?", "pankha chal raha hai?"                             │
 │ - "check devices", "show relays"                                           │
 │                                                                             │
-│ MULTI-DEVICE CONTROL → Call control_device 4 times (relay 1,2,3,4)         │
+│ MULTI-DEVICE CONTROL → Smart Home Automation                               │
 │ ──────────────────────────────────────────────────────────────────         │
-│ 🚨 IMPORTANT: When user is LEAVING HOME or GOING TO SLEEP → ALL OFF        │
-│ 🚨 IMPORTANT: When user is COMING HOME or WAKING UP → ALL ON               │
 │                                                                             │
-│ ALL OFF triggers - turn off ALL 4 relays (1,2,3,4):                        │
-│ - "going out", "leaving", "leaving home", "stepping out"                   │
-│ - "ghar se bahar", "bahar ja raha", "bahar jaa raha"                       │
-│ - "dooston ke saath", "friends ke saath" (implies going out)               │
-│ - "market ja raha", "office ja raha", "kaam pe ja raha"                    │
-│ - "energy saving", "save energy", "bijli bachao"                           │
-│ - "goodnight", "good night", "sleep mode", "night mode"                    │
-│ - "so raha hoon", "sone ja raha", "raat ho gayi", "neend aa rahi"          │
-│ - "turn everything off", "all off", "sab band karo", "sab kuch band"       │
-│ - Urdu script: "باہر جا رہا", "گھر سے باہر", "سو رہا ہوں"                  │
+│ 🚨 SCENARIO 1: GOING OUT (no return time mentioned)                        │
+│    → Turn ALL 4 devices OFF immediately                                    │
+│    Triggers:                                                               │
+│    - "going out", "hanging out", "stepping out", "leaving home"            │
+│    - "hanging out with friends", "meeting friends", "going to mall"        │
+│    - "ghar se bahar", "bahar ja raha", "dooston ke saath"                  │
+│    - "dooston se milne", "friends ke saath ghoomne"                        │
+│    - "market ja raha", "office ja raha", "kaam pe ja raha"                 │
+│    - Urdu: "باہر جا رہا", "دوستوں کے ساتھ", "گھر سے باہر"                  │
 │                                                                             │
-│ ALL ON triggers - turn on ALL 4 relays (1,2,3,4):                          │
-│ - "i'm home", "im home", "back home", "reached home"                       │
-│ - "ghar aa gaya", "ghar pohunch gaya", "wapas aa gaya"                     │
-│ - "party time", "party mode", "make it lively", "lets be alive"            │
-│ - "turn everything on", "all on", "sab chalu karo", "sab on karo"          │
-│ - "welcome mode", "awake", "wake up mode", "uth gaya"                      │
-│ - Urdu script: "گھر آ گیا", "واپس آ گیا"                                    │
+│ 🚨 SCENARIO 2: WILL BE BACK BY <TIME> (return time mentioned, no going out)│
+│    → Schedule ALL 4 devices to turn ON at that time                        │
+│    Triggers:                                                               │
+│    - "will be back by 5pm", "back in 2 hours", "returning at 6"            │
+│    - "wapas aaunga 5 baje", "2 ghante mein wapas"                          │
+│    - "will return by evening", "back by shaam"                             │
+│    - Calculate: "in X hours/minutes" → add to current time                 │
 │                                                                             │
-│ ⚠️ For multi-device: You MUST call control_device 4 SEPARATE times:        │
+│ 🚨 SCENARIO 3: GOING OUT + RETURN TIME (BOTH mentioned)                    │
+│    → Turn ALL 4 devices OFF immediately                                    │
+│    → ALSO Schedule ALL 4 devices to turn ON at return time                 │
+│    Examples:                                                               │
+│    - "going out, will be back by 5pm" → OFF now + schedule ON at 17:00     │
+│    - "hanging out with friends, back in 2 hours" → OFF now + ON in 2hr     │
+│    - "dooston ke saath ja raha, 3 ghante mein wapas" → OFF + ON in 3hr     │
+│    - "باہر جا رہا، شام تک واپس" → OFF now + schedule ON at ~18:00          │
+│                                                                             │
+│ 🚨 SCENARIO 4: COMING HOME / WAKING UP                                     │
+│    → Turn ALL 4 devices ON immediately                                     │
+│    Triggers:                                                               │
+│    - "i'm home", "back home", "reached home", "ghar aa gaya"               │
+│    - "wapas aa gaya", "ghar pohunch gaya", "party time"                    │
+│    - "wake up", "uth gaya", "good morning mode"                            │
+│    - Urdu: "گھر آ گیا", "واپس آ گیا"                                        │
+│                                                                             │
+│ 🚨 SCENARIO 5: SLEEP / ENERGY SAVING                                       │
+│    → Turn ALL 4 devices OFF immediately                                    │
+│    Triggers:                                                               │
+│    - "goodnight", "sleep mode", "so raha hoon", "neend aa rahi"            │
+│    - "energy saving", "bijli bachao", "sab band karo"                      │
+│    - Urdu: "سو رہا ہوں", "رات ہو گئی"                                       │
+│                                                                             │
+│ ⚠️ EXECUTION RULES:                                                        │
+│    For IMMEDIATE control: call control_device 4 times (relays 1,2,3,4)     │
+│    For SCHEDULED control: call schedule_device 4 times (relays 1,2,3,4)    │
+│    For COMBINED (Scenario 3): call control_device 4x THEN schedule_device 4x│
+│                                                                             │
+│    control_device calls:                                                   │
 │    1. control_device(relay_number=1, action="off/on")                      │
 │    2. control_device(relay_number=2, action="off/on")                      │
 │    3. control_device(relay_number=3, action="off/on")                      │
 │    4. control_device(relay_number=4, action="off/on")                      │
+│                                                                             │
+│    schedule_device calls (for return time):                                │
+│    1. schedule_device(relay_number=1, action="on", due_date, due_time)     │
+│    2. schedule_device(relay_number=2, action="on", due_date, due_time)     │
+│    3. schedule_device(relay_number=3, action="on", due_date, due_time)     │
+│    4. schedule_device(relay_number=4, action="on", due_date, due_time)     │
 │                                                                             │
 │ TIME PARSING:                                                               │
 │ - "6pm" / "6 pm" / "6:00 pm" → "18:00"                                     │
