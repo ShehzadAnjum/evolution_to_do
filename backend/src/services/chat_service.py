@@ -8,7 +8,7 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 from typing import Any
 
 from sqlmodel import Session, select
@@ -25,15 +25,204 @@ from src.services.openai_client import (
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# SMART HOME INTENT DETECTION (Bypasses OpenAI tool selection)
+# =============================================================================
+
+def detect_smart_home_intent(message: str) -> dict | None:
+    """
+    Detect going out / coming home intent BEFORE sending to OpenAI.
+
+    This bypasses OpenAI's unreliable tool selection for multi-device scenarios.
+    Returns the action to take directly if a smart home intent is detected.
+
+    Returns:
+        dict with 'action' and optional 'return_time', or None if not a smart home intent
+    """
+    msg = message.lower()
+
+    # Going out patterns (English + Roman Urdu + Urdu Script) - flexible spelling
+    going_out_patterns = [
+        r'\b(going out|hang(?:ing)? out|stepping out|leaving home|going to)\b',
+        r'\b(ghar se bah[ai]r|bah[ai]r ja|dooston ke saath|friends ke saath)\b',
+        r'\b(market ja|office ja|kaam pe ja|mall ja|khana kha)\b',
+        r'\b(goodnight|sleep mode|so raha|energy saving|bijli bachao)\b',
+        r'\b(sab band|all off|everything off)\b',
+        # Urdu Script patterns
+        r'باہر\s*جا',  # باہر جا (going out)
+        r'دوستوں\s*کے\s*ساتھ',  # دوستوں کے ساتھ (with friends)
+        r'گھر\s*سے\s*باہر',  # گھر سے باہر (out of home)
+        r'سو\s*رہا',  # سو رہا (sleeping)
+        r'سب\s*بند',  # سب بند (all off)
+    ]
+
+    # Coming home patterns
+    coming_home_patterns = [
+        r"\b(i'?m home|back home|reached home|ghar aa gaya)\b",
+        r'\b(wapas aa gaya|ghar pohunch|party time|let.?s be alive)\b',
+        r'\b(wake up|uth gaya|good morning)\b',
+        r'\b(sab on|all on|everything on)\b',
+        # Urdu Script patterns
+        r'گھر\s*آ\s*گیا',  # گھر آ گیا (reached home)
+        r'واپس\s*آ\s*گیا',  # واپس آ گیا (came back)
+        r'اٹھ\s*گیا',  # اٹھ گیا (woke up)
+        r'سب\s*آن',  # سب آن (all on)
+        r'سب\s*چالو',  # سب چالو (all on)
+    ]
+
+    # Absolute time patterns (e.g., "back by 5pm", "wapas 6 baje")
+    absolute_time_patterns = [
+        r'back (?:by |at )?(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM)?)',
+        r'(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM))\s*(?:tak|pe|par|mein)',
+        r'wapas.*?(\d{1,2}(?::\d{2})?\s*(?:am|pm|baje)?)',
+        r'return(?:ing)?.*?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)',
+    ]
+
+    # Relative time patterns (e.g., "after 2 min", "in 3 hours", "30 min baad")
+    relative_time_patterns = [
+        # English: "in 2 hours", "after 30 minutes", "for 1 hour"
+        r'(?:in|after|for)\s+(\d+)\s*(hours?|hrs?|minutes?|mins?)',
+        # "2 hours later", "30 min later"
+        r'(\d+)\s*(hours?|hrs?|minutes?|mins?)\s*(?:later|from now)',
+        # Roman Urdu: "2 ghante baad", "30 min baad", "2 ghante mein/may"
+        r'(\d+)\s*(ghant(?:e|a|ay)?|mint?|minutes?)\s*(?:baad|mein|me|may|bad)',
+        # "baad 2 ghante", "baad 30 min"
+        r'(?:baad|bad)\s+(\d+)\s*(ghant(?:e|a|ay)?|mint?|minutes?)',
+        # "2 min may wapis", "5 min mein wapas" - return time with wapis/wapas
+        r'(\d+)\s*(min(?:t|ute)?s?)\s*(?:may|mein|me)\s*(?:wap[ia]s)',
+        # Urdu Script: "2 منٹ کے بعد", "2 گھنٹے بعد" (2 minutes/hours after)
+        r'(\d+)\s*(منٹ|گھنٹ[ےہ]?)\s*(?:کے\s*)?بعد',
+        # Urdu Script with واپس: "2 منٹ بعد واپس"
+        r'(\d+)\s*(منٹ|گھنٹ[ےہ]?)\s*(?:کے\s*)?بعد\s*واپس',
+    ]
+
+    # Search both lowercased (English/Roman Urdu) and original (Urdu Script)
+    is_going_out = (
+        any(re.search(p, msg) for p in going_out_patterns) or
+        any(re.search(p, message) for p in going_out_patterns)  # Original for Urdu Script
+    )
+    is_coming_home = (
+        any(re.search(p, msg) for p in coming_home_patterns) or
+        any(re.search(p, message) for p in coming_home_patterns)  # Original for Urdu Script
+    )
+
+    # Don't trigger for single device control
+    single_device_patterns = [
+        r'\b(turn on|turn off|switch on|switch off)\s+(light|fan|aquarium|bulb|pankha|batii)\b',
+        r'\b(light|fan|aquarium|bulb|pankha|batii)\s+(on|off|band|chalu)\b',
+    ]
+    is_single_device = any(re.search(p, msg) for p in single_device_patterns)
+
+    # If it looks like single device control, don't intercept
+    if is_single_device and not is_going_out and not is_coming_home:
+        return None
+
+    # Extract return time if present
+    return_time = None
+    return_date = None
+
+    # First check for relative time patterns (search both msg and original message)
+    for pattern in relative_time_patterns:
+        match = re.search(pattern, msg) or re.search(pattern, message)
+        if match:
+            num = int(match.group(1))
+            # Handle Urdu Script units (منٹ = minutes, گھنٹ = hours)
+            unit_raw = match.group(2) if match.lastindex >= 2 else ""
+            # Map Urdu Script units to English
+            if unit_raw in ["منٹ"] or "منٹ" in unit_raw:
+                unit = "min"
+            elif "گھنٹ" in unit_raw:
+                unit = "hour"
+            else:
+                unit = unit_raw.lower() if unit_raw else "min"
+            now = datetime.now()
+
+            # Determine if hours or minutes
+            if any(h in unit for h in ['hour', 'hr', 'ghant']):
+                future = now + timedelta(hours=num)
+            else:
+                future = now + timedelta(minutes=num)
+
+            return_time = future.strftime("%H:%M")
+            return_date = future.strftime("%Y-%m-%d")
+            logger.info(f"Parsed relative time: {num} {unit} -> {return_time} on {return_date}")
+            break
+
+    # If no relative time found, check absolute time patterns
+    if not return_time:
+        for pattern in absolute_time_patterns:
+            match = re.search(pattern, msg)
+            if match:
+                time_str = match.group(1)
+                return_time = _parse_time_to_24h(time_str)
+                if return_time:
+                    logger.info(f"Parsed absolute time: {time_str} -> {return_time}")
+                break
+
+    if is_going_out:
+        return {"action": "smart_home_away", "return_time": return_time, "return_date": return_date}
+    elif is_coming_home:
+        return {"action": "smart_home_arrive"}
+
+    return None
+
+
+def _parse_time_to_24h(time_str: str) -> str | None:
+    """Convert various time formats to HH:MM 24-hour format."""
+    time_str = time_str.lower().strip()
+
+    # Extract numbers
+    numbers = re.findall(r'\d+', time_str)
+    if not numbers:
+        return None
+
+    hour = int(numbers[0])
+    minute = int(numbers[1]) if len(numbers) > 1 else 0
+
+    # Handle AM/PM
+    if 'pm' in time_str and hour < 12:
+        hour += 12
+    elif 'am' in time_str and hour == 12:
+        hour = 0
+
+    # Validate
+    if hour > 23 or minute > 59:
+        return None
+
+    return f"{hour:02d}:{minute:02d}"
+
+
 def detect_response_language(text: str) -> str:
-    """Detect language of AI response (for logging only).
+    """Detect language of AI response.
 
     Returns:
         'urdu_script' - if text contains Urdu Unicode characters
+        'roman_urdu' - if text contains common Roman Urdu words
         'english' - otherwise
     """
+    # Check for Urdu script (Arabic characters)
     if re.search(r'[\u0600-\u06FF]', text):
         return 'urdu_script'
+
+    # Check for Roman Urdu response patterns (common Urdu words in Latin script)
+    text_lower = text.lower()
+    roman_urdu_response_patterns = [
+        r'\b(kaam|kiya|hogaya|hogayi|kardiya|kardiye)\b',
+        r'\b(banda?|chalu|band)\b',  # "device band/chalu"
+        r'\b(sab|tamam|saray|saari)\b',  # "all" words
+        r'\b(wapas|wapis)\b',  # "return"
+        r'\b(baj[ae]|ghant[ae])\b',  # time units
+        r'\b(theek|acha|achha)\b',  # acknowledgments
+    ]
+
+    roman_urdu_count = 0
+    for pattern in roman_urdu_response_patterns:
+        if re.search(pattern, text_lower):
+            roman_urdu_count += 1
+
+    if roman_urdu_count >= 2:
+        return 'roman_urdu'
+
     return 'english'
 
 
@@ -79,18 +268,28 @@ def detect_input_language(text: str) -> str:
     # Check for Roman Urdu patterns - common Urdu words written in English
     # IMPORTANT: Avoid false positives with common English words!
     roman_urdu_patterns = [
-        r'\b(kar|karo|karna|karin|karain|karein|kiya|kiye)\b',  # "do" verb forms (removed "ki" - too short)
-        r'\b(hai|hay|hain|hy|hona|hua|huwa|hui|hoye)\b',  # "is/are" forms (removed "he/ho" - English words)
-        r'\b(ka|ke|ko|say|se|ne|par|pe|mein|main)\b',  # Postpositions (removed "ki/may" - confusing)
-        r'\b(mujhe|mujhay|meri|mera|mere|apna|apni|apne)\b',  # Pronouns
+        r'\b(kar|karo|karna|karin|karain|karein|kiya|kiye)\b',  # "do" verb forms
+        r'\b(hai|hay|hain|hy|hona|hua|huwa|hui|hoye|hoon|hou|hun)\b',  # "is/are/am" forms
+        r'\b(raha|rahi|rahe|rahay)\b',  # Continuous tense markers
+        r'\b(jao|jaao|jata|jati|jaun|jaou|gaya|gayi|gaye|jana)\b',  # "go" verb forms
+        r'\b(aao|aaun|aata|aati|aaya|aayi|aaye|ana)\b',  # "come" verb forms
+        r'\b(wapis|wapas|wapsi)\b',  # "return" words
+        r'\b(khana|kana|kanay|khao|khaun)\b',  # "food/eat" words
+        r'\b(bahir|bahar)\b',  # "outside" words
+        r'\b(ka|ke|ko|say|se|ne|par|pe|mein|main|may)\b',  # Postpositions
+        r'\b(mujhe|mujhay|meri|mera|mere|apna|apni|apne|tera|teri|tere)\b',  # Pronouns
         r'\b(kya|kab|kahan|kaun|kyun|kaise|kitna|kitne|kitni)\b',  # Question words
-        r'\b(aur|lekin|magar|phir|tou|bhi|sirf)\b',  # Conjunctions (REMOVED "to/ya" - English words!)
-        r'\b(nahi|nahe|nai|mat)\b',  # Negations (removed "na" - too short)
-        r'\b(haan|han|ji|jee|theek|thik|acha|achha)\b',  # Affirmations (removed "g" - too short)
-        r'\b(kal|aaj|parso|abhi|baad|pehle|waqt)\b',  # Time words (removed "din" - English word)
-        r'\b(lena|leni|dena|dein|jana|ana|rakhna|banana|dikhao|dikhana)\b',  # Common verbs
-        r'\b(begum|biwi|saas|susral|ghar)\b',  # Family/place words (removed "wife/office" - English)
+        r'\b(aur|lekin|magar|phir|tou|bhi|sirf)\b',  # Conjunctions
+        r'\b(nahi|nahe|nai|mat)\b',  # Negations
+        r'\b(haan|han|ji|jee|theek|thik|acha|achha)\b',  # Affirmations
+        r'\b(kal|aaj|parso|abhi|baad|pehle|waqt)\b',  # Time words
+        r'\b(lena|leni|dena|dein|rakhna|banana|dikhao|dikhana)\b',  # Common verbs
+        r'\b(begum|biwi|saas|susral|ghar)\b',  # Family/place words
         r'\b(phadda|jhagra|naraz|khush|udas)\b',  # Emotion words
+        r'\b(dost|dooston|doston|yaar)\b',  # "friend" words
+        r'\b(baje|ghante|mint|minute)\b',  # Time units
+        r'\b(chalu|band|khatam)\b',  # State words (on/off/finished)
+        r'\b(sab|tamam|saray|saari)\b',  # "all" words
     ]
 
     strong_count = 0
@@ -393,165 +592,36 @@ RULE 8 - RECURRENCE INFERENCE (DETECT REPEAT PATTERNS):
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-RULE 9 - IOT DEVICE CONTROL (v4.0.0):
+RULE 9 - IOT DEVICE CONTROL (v5.0.0 - LLM-Driven):
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 🚨🚨🚨 CRITICAL DECISION RULE - READ FIRST! 🚨🚨🚨                           │
+│ 🏠 DEVICE MAPPING                                                           │
+│ Relay 0 = ALL devices | 1 = Light (batii) | 2 = Fan (pankha)               │
+│ 3 = Aquarium (machli) | 4 = Relay4                                         │
 │                                                                             │
-│ IF message contains ANY time reference (at 3am, at 6pm, 7 baje, shaam ko,  │
-│    tomorrow, kal, daily, har rouz, every friday, etc.)                      │
-│    → ALWAYS use schedule_device (NEVER control_device)                      │
+│ 🔧 TOOL SELECTION - Analyze user intent:                                    │
 │                                                                             │
-│ IF message has NO time reference (just "turn on light", "fan off karo")    │
-│    → Use control_device for immediate action                                │
+│ 1. SINGLE DEVICE control → control_device(relay_number, action)            │
+│    "turn on light" → relay=1, action=on                                    │
+│    "fan off karo" → relay=2, action=off                                    │
+│    "all off" / "sab band" → relay=0, action=off                            │
 │                                                                             │
-│ Examples:                                                                   │
-│ - "turn on light" → control_device (no time = immediate)                   │
-│ - "turn on light at 3am" → schedule_device (has time!)                     │
-│ - "fan off karo" → control_device (no time = immediate)                    │
-│ - "3 baje fan off karna" → schedule_device (has time!)                     │
-│ - "light on at 6pm today" → schedule_device (has time!)                    │
-│ - "fishes need light at 3am" → schedule_device (has time!)                 │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 🏠 DEVICE MAPPING (SINGLE DEVICE: esp32-home)                               │
+│ 2. LEAVING HOME → smart_home_away(return_time?, return_date?)              │
+│    User going out = turn OFF all + optionally schedule ON                  │
+│    "going out" → all OFF                                                   │
+│    "hang out with friends, back by 5pm" → all OFF + schedule ON at 17:00   │
+│    "bahar ja raha, 2 ghante baad" → all OFF + schedule ON in 2 hours       │
 │                                                                             │
-│ Relay 1 = Light (batii, rooshni, bulb, lamp)                               │
-│ Relay 2 = Fan (pankha, AC, cooler)                                         │
-│ Relay 3 = Aquarium (machli, fish tank, aquarium pump)                      │
-│ Relay 4 = Relay 4 (generic)                                                │
+│ 3. ARRIVING HOME → smart_home_arrive()                                     │
+│    User coming home = turn ON all                                          │
+│    "i'm home", "ghar aa gaya", "all on" → all ON                           │
 │                                                                             │
-│ IMMEDIATE CONTROL → Use control_device tool (ONLY when NO time mentioned)  │
-│ ─────────────────────────────────────────────────────                       │
-│ English triggers:                                                           │
-│ - "turn on/off the light/fan/aquarium"                                      │
-│ - "switch on/off [device]", "toggle [device]"                               │
-│ - "light on", "fan off", "turn off everything"                              │
+│ 4. SCHEDULE for later → schedule_device(...)                               │
+│    "turn on light at 6pm" → schedule single device                         │
+│    "har rouz 7 baje fan off" → schedule with recurrence                    │
 │                                                                             │
-│ Urdu/Roman Urdu triggers:                                                   │
-│ - "batii on karo", "batii band karo" (turn light on/off)                   │
-│ - "pankha chala do", "pankha band karo" (turn fan on/off)                  │
-│ - "rooshni on kar do", "light off karo"                                    │
-│ - "machli ka pump on karo" (turn aquarium pump on)                         │
-│ - "sab kuch band karo" (turn everything off)                               │
-│                                                                             │
-│ SCHEDULED CONTROL → Use schedule_device tool                                │
-│ ─────────────────────────────────────────────                               │
-│ English triggers:                                                           │
-│ - "turn on light at 6pm", "schedule fan off at 10pm"                       │
-│ - "turn on light at 6pm every day/daily"                                   │
-│ - "every Friday at 7pm turn on aquarium"                                   │
-│ - "tomorrow at 8am turn off fan"                                           │
-│                                                                             │
-│ Urdu/Roman Urdu triggers:                                                   │
-│ - "shaam 6 baje batii on kar dena" (turn on light at 6pm)                  │
-│ - "har rouz 7 baje pankha band karna" (every day at 7pm turn off fan)      │
-│ - "har jumma 6 baje rooshni on karo" (every Friday at 6pm turn on light)   │
-│ - "kal subah 8 baje fan off karna" (tomorrow at 8am turn off fan)          │
-│                                                                             │
-│ DEVICE STATUS → Use device_status tool                                      │
-│ ─────────────────────────────────────                                       │
-│ Triggers:                                                                   │
-│ - "show device status", "what's on?", "device ka status"                   │
-│ - "kya light on hai?", "pankha chal raha hai?"                             │
-│ - "check devices", "show relays"                                           │
-│                                                                             │
-│ MULTI-DEVICE CONTROL → Smart Home Automation                               │
-│ ──────────────────────────────────────────────────────────────────         │
-│                                                                             │
-│ 🚨 SCENARIO 1: GOING OUT (no return time mentioned)                        │
-│    → Turn ALL 4 devices OFF immediately                                    │
-│    Triggers:                                                               │
-│    - "going out", "hanging out", "stepping out", "leaving home"            │
-│    - "hanging out with friends", "meeting friends", "going to mall"        │
-│    - "ghar se bahar", "bahar ja raha", "dooston ke saath"                  │
-│    - "dooston se milne", "friends ke saath ghoomne"                        │
-│    - "market ja raha", "office ja raha", "kaam pe ja raha"                 │
-│    - Urdu: "باہر جا رہا", "دوستوں کے ساتھ", "گھر سے باہر"                  │
-│                                                                             │
-│ 🚨 SCENARIO 2: WILL BE BACK BY <TIME> (return time mentioned, no going out)│
-│    → Schedule ALL 4 devices to turn ON at that time                        │
-│    Triggers:                                                               │
-│    - "will be back by 5pm", "back in 2 hours", "returning at 6"            │
-│    - "wapas aaunga 5 baje", "2 ghante mein wapas"                          │
-│    - "will return by evening", "back by shaam"                             │
-│    - Calculate: "in X hours/minutes" → add to current time                 │
-│                                                                             │
-│ 🚨 SCENARIO 3: GOING OUT + RETURN TIME (BOTH mentioned)                    │
-│    → Turn ALL 4 devices OFF immediately                                    │
-│    → ALSO Schedule ALL 4 devices to turn ON at return time                 │
-│    Examples:                                                               │
-│    - "going out, will be back by 5pm" → OFF now + schedule ON at 17:00     │
-│    - "hanging out with friends, back in 2 hours" → OFF now + ON in 2hr     │
-│    - "dooston ke saath ja raha, 3 ghante mein wapas" → OFF + ON in 3hr     │
-│    - "باہر جا رہا، شام تک واپس" → OFF now + schedule ON at ~18:00          │
-│                                                                             │
-│ 🚨 SCENARIO 4: COMING HOME / WAKING UP                                     │
-│    → Turn ALL 4 devices ON immediately                                     │
-│    Triggers:                                                               │
-│    - "i'm home", "back home", "reached home", "ghar aa gaya"               │
-│    - "wapas aa gaya", "ghar pohunch gaya", "party time"                    │
-│    - "wake up", "uth gaya", "good morning mode"                            │
-│    - Urdu: "گھر آ گیا", "واپس آ گیا"                                        │
-│                                                                             │
-│ 🚨 SCENARIO 5: SLEEP / ENERGY SAVING                                       │
-│    → Turn ALL 4 devices OFF immediately                                    │
-│    Triggers:                                                               │
-│    - "goodnight", "sleep mode", "so raha hoon", "neend aa rahi"            │
-│    - "energy saving", "bijli bachao", "sab band karo"                      │
-│    - Urdu: "سو رہا ہوں", "رات ہو گئی"                                       │
-│                                                                             │
-│ 🚨🚨🚨 CRITICAL EXECUTION RULES - YOU MUST ACTUALLY CALL THE TOOLS! 🚨🚨🚨 │
-│                                                                             │
-│ ❌ WRONG: Just saying "I'll turn on at 3:31 AM" without calling tools       │
-│ ✅ RIGHT: Actually call schedule_device 4 times to CREATE the schedules     │
-│                                                                             │
-│ For IMMEDIATE control: CALL control_device 4 times (relays 1,2,3,4)        │
-│ For SCHEDULED control: CALL schedule_device 4 times (relays 1,2,3,4)       │
-│ For COMBINED (Scenario 3): CALL control_device 4x THEN schedule_device 4x  │
-│                                                                             │
-│ Example: "going out, back by 3:31 AM" requires 8 TOOL CALLS:               │
-│    FIRST - Turn off now (4 calls):                                         │
-│    1. control_device(relay_number=1, action="off")                         │
-│    2. control_device(relay_number=2, action="off")                         │
-│    3. control_device(relay_number=3, action="off")                         │
-│    4. control_device(relay_number=4, action="off")                         │
-│                                                                             │
-│    THEN - Schedule turn on (4 calls):                                      │
-│    5. schedule_device(relay_number=1, action="on", due_date="YYYY-MM-DD", due_time="03:31", recurrence_pattern="none")│
-│    6. schedule_device(relay_number=2, action="on", due_date="YYYY-MM-DD", due_time="03:31", recurrence_pattern="none")│
-│    7. schedule_device(relay_number=3, action="on", due_date="YYYY-MM-DD", due_time="03:31", recurrence_pattern="none")│
-│    8. schedule_device(relay_number=4, action="on", due_date="YYYY-MM-DD", due_time="03:31", recurrence_pattern="none")│
-│                                                                             │
-│ ⚠️ If you don't call schedule_device, NO TASK IS CREATED and nothing happens│
-│                                                                             │
-│ TIME PARSING:                                                               │
-│ - "6pm" / "6 pm" / "6:00 pm" → "18:00"                                     │
-│ - "morning 7" / "subah 7" / "7 am" → "07:00"                               │
-│ - "shaam" / "evening" → around "18:00"                                      │
-│ - "raat" / "night" → around "21:00"                                        │
-│                                                                             │
-│ WEEKDAY MAPPING (for weekly schedules):                                     │
-│ - somwar/pir = monday, mangal = tuesday, budh = wednesday                   │
-│ - jumerat = thursday, jumma = friday, sanichar/hafta = saturday             │
-│ - itwar = sunday                                                            │
-│                                                                             │
-│ RECURRENCE:                                                                 │
-│ - One-time: no recurrence words → recurrence_pattern: "none"                │
-│ - Daily: "har rouz", "daily", "every day" → recurrence_pattern: "daily"     │
-│ - Weekly: "har jumma", "every friday" → recurrence_pattern: "weekly"        │
-│           + weekday: "friday"                                               │
-│                                                                             │
-│ ⚠️ IMPORTANT: Device schedules create TASKS of type "device_schedule"       │
-│ - These appear in the task list with device icon                            │
-│ - User can see, edit, delete them like regular tasks                        │
-│ - The schedule is ALSO sent to ESP32 for local execution                    │
-│                                                                             │
-│ RESPONSE EXAMPLES:                                                          │
-│ English: "✅ Light turned ON"                                                │
-│ English: "✅ Scheduled: Fan will turn OFF at 6:00 PM daily"                  │
-│ Urdu: "✅ بتی آن ہو گئی"                                                    │
-│ Urdu: "✅ شیڈول: پنکھا روزانہ شام ۶ بجے بند ہو جائے گا"                       │
+│ ⏰ TIME PARSING: Convert to HH:MM 24h format                                │
+│ - "5pm" → "17:00" | "3:31am" → "03:31"                                     │
+│ - "in 2 hours" → current_time + 2h | "30 min baad" → current_time + 30m    │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -1004,6 +1074,23 @@ class ChatService:
         self.db.add(user_message)
         self.db.commit()
 
+        # ═══════════════════════════════════════════════════════════════════
+        # SMART HOME INTENT INTERCEPTION (Local detection - more reliable)
+        # LLM is unreliable at tool calling - sometimes just responds with text
+        # instead of actually calling the tool. Local detection ensures action.
+        # ═══════════════════════════════════════════════════════════════════
+        smart_home_intent = detect_smart_home_intent(message)
+        if smart_home_intent:
+            logger.info(f"🏠 SMART HOME INTENT DETECTED: {smart_home_intent}")
+            result = await self._execute_smart_home_intent(
+                smart_home_intent,
+                conversation,
+                input_language,
+            )
+            if result:
+                return result
+            # If smart home execution failed, fall through to normal OpenAI processing
+
         # Build message history for OpenAI (AI will self-detect language)
         messages = await self._build_message_history(conversation.id, context_messages)
 
@@ -1032,11 +1119,23 @@ class ChatService:
         ai_content = get_response_content(response) or "(no text content)"
         logger.info(f"   Response text: {ai_content[:300]}...")
 
-        # Process tool calls if any
+        # Process tool calls in a loop (supports multi-round tool calling)
+        # This is needed for scenarios like "going out, back by 5pm" which requires
+        # 4 control_device calls (OFF) + 4 schedule_device calls (ON) = 8 total
         tool_results = []
-        tool_calls = parse_tool_calls(response)
+        max_tool_rounds = 5  # Safety limit to prevent infinite loops
+        tool_round = 0
 
-        if tool_calls:
+        while tool_round < max_tool_rounds:
+            tool_calls = parse_tool_calls(response)
+
+            if not tool_calls:
+                # No more tool calls, exit loop
+                break
+
+            tool_round += 1
+            logger.info(f"🔧 TOOL ROUND {tool_round}: Processing {len(tool_calls)} tool calls")
+
             # Save assistant message with tool calls
             assistant_content = get_response_content(response) or ""
             tool_calls_json = json.dumps(tool_calls)
@@ -1086,6 +1185,13 @@ class ChatService:
             messages = await self._build_message_history(conversation.id)
             response = await create_chat_completion(messages, tools)
 
+            logger.info(f"📥 FOLLOW-UP RESPONSE (round {tool_round}):")
+            follow_up_content = get_response_content(response) or "(no text)"
+            logger.info(f"   Content: {follow_up_content[:200]}...")
+
+        if tool_round >= max_tool_rounds:
+            logger.warning(f"⚠️ Reached max tool rounds ({max_tool_rounds}), stopping")
+
         # Save final assistant response
         final_content = get_response_content(response)
         if final_content:
@@ -1120,6 +1226,187 @@ class ChatService:
             "input_language": input_language,
             "response_language": response_lang,
         }
+
+    async def _execute_smart_home_intent(
+        self,
+        intent: dict,
+        conversation: Conversation,
+        input_language: str,
+    ) -> dict[str, Any] | None:
+        """Execute smart home intent directly, bypassing OpenAI.
+
+        This handles 'going out' and 'coming home' scenarios reliably by
+        executing the tools ourselves instead of relying on OpenAI to
+        make multiple parallel tool calls (which proved unreliable).
+
+        Args:
+            intent: Dict with 'action' and optional 'return_time'
+            conversation: Current conversation
+            input_language: Detected input language for response
+
+        Returns:
+            Response dict if successful, None to fall through to OpenAI
+        """
+        from src.mcp.tools.tool_executor import ToolExecutor
+
+        action = intent.get("action")
+        return_time = intent.get("return_time")
+        return_date = intent.get("return_date")
+
+        executor = ToolExecutor(self.db, self.user_id)
+
+        try:
+            if action == "smart_home_away":
+                logger.info(f"🏠 Executing smart_home_away (return_time={return_time})")
+                arguments = {}
+                if return_time:
+                    arguments["return_time"] = return_time
+                if return_date:
+                    arguments["return_date"] = return_date
+
+                result = await executor.execute_tool("smart_home_away", arguments)
+
+            elif action == "smart_home_arrive":
+                logger.info("🏠 Executing smart_home_arrive")
+                result = await executor.execute_tool("smart_home_arrive", {})
+
+            else:
+                logger.warning(f"Unknown smart home action: {action}")
+                return None
+
+            if not result.get("success"):
+                logger.error(f"Smart home execution failed: {result}")
+                return None
+
+            # Generate response message based on language
+            response_message = self._generate_smart_home_response(
+                action, result, return_time, input_language
+            )
+
+            # Save assistant message
+            assistant_message = Message(
+                conversation_id=conversation.id,
+                role="assistant",
+                content=response_message,
+            )
+            self.db.add(assistant_message)
+            self.db.commit()
+
+            logger.info(f"🏠 Smart home response: {response_message}")
+
+            # Detect response language from the generated message
+            response_lang = detect_response_language(response_message)
+
+            return {
+                "success": True,
+                "conversation_id": str(conversation.id),
+                "message": response_message,
+                "tool_results": [result],
+                "input_language": input_language,
+                "response_language": response_lang,
+            }
+
+        except Exception as e:
+            logger.error(f"Smart home execution error: {e}")
+            return None
+
+    def _generate_smart_home_response(
+        self,
+        action: str,
+        result: dict,
+        return_time: str | None,
+        input_language: str,
+    ) -> str:
+        """Generate a friendly response for smart home actions."""
+
+        if action == "smart_home_away":
+            devices_off = result.get("devices_turned_off", [])
+            schedules = result.get("schedules_created", [])
+
+            if input_language == "urdu_script":
+                # Urdu response
+                response = "✅ تمام ڈیوائسز بند کر دیے گئے:\n"
+                for d in devices_off:
+                    response += f"• {d} بند ہے\n"
+                if schedules and return_time:
+                    # Convert to 12-hour format
+                    try:
+                        h, m = map(int, return_time.split(":"))
+                        ampm = "صبح" if h < 12 else "شام"
+                        h_12 = h if h <= 12 else h - 12
+                        if h_12 == 0:
+                            h_12 = 12
+                        time_display = f"{h_12}:{m:02d} {ampm}"
+                    except:
+                        time_display = return_time
+                    response += f"\n📅 {time_display} پر سب کچھ واپس آن ہو جائے گا۔"
+                response += "\n\nمزے کرو! 🎉"
+            elif input_language == "roman_urdu":
+                # Roman Urdu INPUT → Urdu Script OUTPUT (per system prompt rules)
+                response = "✅ تمام ڈیوائسز بند کر دیے گئے:\n"
+                for d in devices_off:
+                    response += f"• {d} بند ہے\n"
+                if schedules and return_time:
+                    try:
+                        h, m = map(int, return_time.split(":"))
+                        ampm = "صبح" if h < 12 else "شام"
+                        h_12 = h if h <= 12 else h - 12
+                        if h_12 == 0:
+                            h_12 = 12
+                        time_display = f"{h_12}:{m:02d} {ampm}"
+                    except:
+                        time_display = return_time
+                    response += f"\n📅 {time_display} پر سب کچھ واپس آن ہو جائے گا۔"
+                response += "\n\nمزے کرو! 🎉"
+            else:
+                # English response - natural pauses with periods for TTS
+                response = "All devices are now off.\n"
+                for i, d in enumerate(devices_off):
+                    response += f"{d} is off. "
+                    if i < len(devices_off) - 1:
+                        response += "\n"
+                if schedules and return_time:
+                    # Convert to 12-hour format
+                    try:
+                        h, m = map(int, return_time.split(":"))
+                        ampm = "AM" if h < 12 else "PM"
+                        h_12 = h if h <= 12 else h - 12
+                        if h_12 == 0:
+                            h_12 = 12
+                        time_display = f"{h_12}:{m:02d} {ampm}"
+                    except:
+                        time_display = return_time
+                    response += f"\n\nScheduled to turn everything back on at {time_display}."
+                response += "\n\nHave fun!"
+
+            return response
+
+        elif action == "smart_home_arrive":
+            devices_on = result.get("devices_turned_on", [])
+
+            if input_language == "urdu_script":
+                response = "✅ خوش آمدید! تمام ڈیوائسز آن کر دیے گئے:\n"
+                for d in devices_on:
+                    response += f"• {d} آن ہے\n"
+                response += "\n🏠 گھر آ گئے!"
+            elif input_language == "roman_urdu":
+                # Roman Urdu INPUT → Urdu Script OUTPUT (per system prompt rules)
+                response = "✅ خوش آمدید! تمام ڈیوائسز آن کر دیے گئے:\n"
+                for d in devices_on:
+                    response += f"• {d} آن ہے\n"
+                response += "\n🏠 گھر آ گئے!"
+            else:
+                # English response - natural for TTS
+                response = "Welcome home! All devices are now on.\n"
+                for i, d in enumerate(devices_on):
+                    response += f"{d} is on. "
+                    if i < len(devices_on) - 1:
+                        response += "\n"
+                response += "\n\nGood to have you back!"
+
+            return response
+
+        return result.get("message", "Action completed")
 
     async def _get_or_create_conversation(
         self, conversation_id: uuid.UUID | None

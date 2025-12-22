@@ -52,6 +52,9 @@ class ToolExecutor:
             "control_device": self._control_device,
             "schedule_device": self._schedule_device,
             "device_status": self._device_status,
+            # v4.0.1: Smart home combined tools (going out / coming home)
+            "smart_home_away": self._smart_home_away,
+            "smart_home_arrive": self._smart_home_arrive,
         }
 
         handler = tool_handlers.get(name)
@@ -681,7 +684,7 @@ class ToolExecutor:
             due_time=due_time_str,
             recurrence_pattern=recurrence,
             weekday=weekday.lower() if weekday else None,
-            category="iot",
+            category="device_schedules",  # Match frontend sidebar category
             schedule_synced=False,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -765,4 +768,228 @@ class ToolExecutor:
             },
             "mqtt_connected": mqtt.is_connected,
             "message": f"Device: {online_status}{signal_str}. {', '.join(relay_states)}",
+        }
+
+    # =========================================================================
+    # v4.0.1: Smart Home Combined Tools
+    # These tools handle multi-device scenarios in a single call
+    # =========================================================================
+
+    async def _smart_home_away(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Handle 'going out' scenarios - turn all off, optionally schedule all on.
+
+        This combined tool solves the problem of LLM not making 8 parallel calls.
+        When user says "going out, back by 5pm", this single tool:
+        1. Turns OFF all 4 relays immediately
+        2. Schedules all 4 relays to turn ON at the return time
+
+        Args:
+            arguments: {
+                return_time?: str (HH:MM 24-hour format),
+                return_date?: str (YYYY-MM-DD, defaults to today)
+            }
+
+        Returns:
+            Combined result with all actions taken
+        """
+        from ...services.mqtt_service import get_mqtt_service, RELAY_NAMES
+
+        return_time = arguments.get("return_time")
+        return_date_str = arguments.get("return_date")
+
+        results = {
+            "success": True,
+            "devices_off": [],
+            "schedules_created": [],
+            "errors": [],
+        }
+
+        mqtt = get_mqtt_service()
+
+        # Step 1: Turn ALL devices OFF with single command (relay_number=0)
+        logger.info("🏠 SMART_HOME_AWAY: Turning all devices OFF")
+        if mqtt.is_connected:
+            result = await mqtt.publish_immediate(
+                relay_number=0,  # 0 = ALL devices
+                action="off",
+            )
+            if result["success"]:
+                results["devices_off"] = ["Light", "Fan", "Aquarium", "Relay 4"]
+                logger.info("  ✅ All devices OFF")
+            else:
+                results["errors"].append("Failed to turn off all devices")
+                logger.error("  ❌ Failed to turn off all devices")
+        else:
+            results["errors"].append("MQTT offline - cannot control devices")
+
+        # Step 2: If return_time provided, schedule all to turn ON
+        if return_time:
+            logger.info(f"🏠 SMART_HOME_AWAY: Scheduling all devices ON at {return_time}")
+
+            # Parse return_date
+            if not return_date_str:
+                return_date = datetime.now().date()
+            else:
+                try:
+                    return_date = datetime.strptime(return_date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    return_date = datetime.now().date()
+
+            # Parse return_time
+            try:
+                time_parts = return_time.split(":")
+                hour = int(time_parts[0])
+                minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+            except (ValueError, IndexError):
+                results["errors"].append(f"Invalid return time format: {return_time}")
+                return self._build_away_response(results, return_time)
+
+            scheduled_datetime = datetime(
+                return_date.year, return_date.month, return_date.day,
+                hour, minute, 0
+            )
+
+            # Create schedule tasks for all 4 relays
+            for relay_num in [1, 2, 3, 4]:
+                relay_name = RELAY_NAMES.get(relay_num, f"Relay {relay_num}")
+
+                # Create task in DB
+                task = TaskDB(
+                    title=f"ON {relay_name}",
+                    description=f"Auto-scheduled: Turn on when returning home",
+                    user_id=self.user_id,
+                    task_type="device_schedule",
+                    device_id="esp32-home",
+                    relay_number=relay_num,
+                    device_action="on",
+                    due_date=return_date,
+                    due_time=return_time,
+                    recurrence_pattern="none",
+                    category="device_schedules",  # Match frontend sidebar category
+                    schedule_synced=False,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+
+                self.db.add(task)
+                self.db.commit()
+                self.db.refresh(task)
+
+                # Send to ESP32 via MQTT
+                if mqtt.is_connected:
+                    scheduled_unix = int(scheduled_datetime.timestamp())
+                    mqtt_result = await mqtt.publish_schedule(
+                        relay_number=relay_num,
+                        action="on",
+                        scheduled_time=scheduled_unix,
+                        device_name=relay_name,
+                    )
+                    if mqtt_result["success"]:
+                        task.mqtt_command_id = mqtt_result.get("command_id")
+                        task.schedule_synced = True
+                        self.db.add(task)
+                        self.db.commit()
+
+                results["schedules_created"].append({
+                    "relay": relay_name,
+                    "action": "on",
+                    "time": return_time,
+                    "task_id": str(task.id),
+                    "synced": task.schedule_synced,
+                })
+                logger.info(f"  ✅ Scheduled {relay_name} ON at {return_time}")
+
+        return self._build_away_response(results, return_time)
+
+    def _build_away_response(self, results: dict, return_time: str | None) -> dict:
+        """Build user-friendly response for smart_home_away."""
+        devices_off = results["devices_off"]
+        schedules = results["schedules_created"]
+        errors = results["errors"]
+
+        # Build message
+        message_parts = []
+
+        if devices_off:
+            message_parts.append(f"Turned OFF: {', '.join(devices_off)}")
+
+        if schedules:
+            schedule_names = [s["relay"] for s in schedules]
+            time_str = return_time or "unknown"
+            # Convert to 12-hour format for display
+            try:
+                h, m = map(int, time_str.split(":"))
+                ampm = "AM" if h < 12 else "PM"
+                h_12 = h if h <= 12 else h - 12
+                if h_12 == 0:
+                    h_12 = 12
+                time_display = f"{h_12}:{m:02d} {ampm}"
+            except:
+                time_display = time_str
+            message_parts.append(f"Scheduled ON at {time_display}: {', '.join(schedule_names)}")
+
+        if errors:
+            message_parts.append(f"Errors: {'; '.join(errors)}")
+
+        return {
+            "success": len(errors) == 0 or len(devices_off) > 0,
+            "devices_turned_off": devices_off,
+            "schedules_created": schedules,
+            "return_time": return_time,
+            "errors": errors if errors else None,
+            "message": ". ".join(message_parts) if message_parts else "No actions taken",
+        }
+
+    async def _smart_home_arrive(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Handle 'coming home' scenarios - turn all devices ON immediately.
+
+        Args:
+            arguments: {} (no arguments needed)
+
+        Returns:
+            Result with all devices turned on
+        """
+        from ...services.mqtt_service import get_mqtt_service, RELAY_NAMES
+
+        results = {
+            "success": True,
+            "devices_on": [],
+            "errors": [],
+        }
+
+        mqtt = get_mqtt_service()
+
+        # Turn ALL devices ON with single command (relay_number=0)
+        logger.info("🏠 SMART_HOME_ARRIVE: Turning all devices ON")
+        if mqtt.is_connected:
+            result = await mqtt.publish_immediate(
+                relay_number=0,  # 0 = ALL devices
+                action="on",
+            )
+            if result["success"]:
+                results["devices_on"] = ["Light", "Fan", "Aquarium", "Relay 4"]
+                logger.info("  ✅ All devices ON")
+            else:
+                results["errors"].append("Failed to turn on all devices")
+                logger.error("  ❌ Failed to turn on all devices")
+        else:
+            results["errors"].append("MQTT offline - cannot control devices")
+
+        # Build message
+        devices_on = results["devices_on"]
+        errors = results["errors"]
+
+        if devices_on:
+            message = f"Welcome home! Turned ON: {', '.join(devices_on)}"
+        else:
+            message = "Could not turn on devices"
+
+        if errors:
+            message += f". Errors: {'; '.join(errors)}"
+
+        return {
+            "success": len(errors) == 0 or len(devices_on) > 0,
+            "devices_turned_on": devices_on,
+            "errors": errors if errors else None,
+            "message": message,
         }

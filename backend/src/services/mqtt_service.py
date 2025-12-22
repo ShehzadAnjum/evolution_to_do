@@ -372,10 +372,11 @@ class MQTTService:
                 "error": "MQTT not connected",
             }
 
-        if relay_number < 1 or relay_number > 4:
+        # relay_number 0 = ALL devices, 1-4 = individual relays
+        if relay_number < 0 or relay_number > 4:
             return {
                 "success": False,
-                "error": "Relay number must be 1-4",
+                "error": "Relay number must be 0 (all) or 1-4",
             }
 
         if action not in ["on", "off", "toggle"]:
@@ -396,7 +397,7 @@ class MQTTService:
 
         try:
             await self._client.publish(topic, json.dumps(payload))
-            relay_name = RELAY_NAMES.get(relay_number, f"Relay {relay_number}")
+            relay_name = "All Devices" if relay_number == 0 else RELAY_NAMES.get(relay_number, f"Relay {relay_number}")
             logger.info(f"Published IMMEDIATE command {command_id}: {relay_name} -> {action}")
 
             return {
