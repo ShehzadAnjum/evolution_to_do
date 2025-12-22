@@ -938,6 +938,7 @@ class ToolExecutor:
 
         return {
             "success": len(errors) == 0 or len(devices_off) > 0,
+            "tool": "smart_home_away",  # For frontend task refresh detection
             "devices_turned_off": devices_off,
             "schedules_created": schedules,
             "return_time": return_time,
@@ -994,6 +995,7 @@ class ToolExecutor:
 
         return {
             "success": len(errors) == 0 or len(devices_on) > 0,
+            "tool": "smart_home_arrive",  # For frontend task refresh detection
             "devices_turned_on": devices_on,
             "errors": errors if errors else None,
             "message": message,
