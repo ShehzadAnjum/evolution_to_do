@@ -8,8 +8,11 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, UTC, timedelta, timezone
 from typing import Any
+
+# Pakistan Standard Time (UTC+5)
+PKT = timezone(timedelta(hours=5))
 
 from sqlmodel import Session, select
 
@@ -135,7 +138,9 @@ def detect_smart_home_intent(message: str) -> dict | None:
                 unit = "hour"
             else:
                 unit = unit_raw.lower() if unit_raw else "min"
-            now = datetime.now()
+
+            # Use Pakistan Standard Time (UTC+5) for local time
+            now = datetime.now(PKT)
 
             # Determine if hours or minutes
             if any(h in unit for h in ['hour', 'hr', 'ghant']):
@@ -145,7 +150,7 @@ def detect_smart_home_intent(message: str) -> dict | None:
 
             return_time = future.strftime("%H:%M")
             return_date = future.strftime("%Y-%m-%d")
-            logger.info(f"Parsed relative time: {num} {unit} -> {return_time} on {return_date}")
+            logger.info(f"Parsed relative time: {num} {unit} -> {return_time} on {return_date} (PKT)")
             break
 
     # If no relative time found, check absolute time patterns

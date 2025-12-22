@@ -5,9 +5,12 @@ by delegating to the task database operations.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
+
+# Pakistan Standard Time (UTC+5)
+PKT = timezone(timedelta(hours=5))
 
 from sqlmodel import Session, select
 
@@ -826,14 +829,14 @@ class ToolExecutor:
         if return_time:
             logger.info(f"🏠 SMART_HOME_AWAY: Scheduling all devices ON at {return_time}")
 
-            # Parse return_date
+            # Parse return_date (use PKT timezone)
             if not return_date_str:
-                return_date = datetime.now().date()
+                return_date = datetime.now(PKT).date()
             else:
                 try:
                     return_date = datetime.strptime(return_date_str, "%Y-%m-%d").date()
                 except ValueError:
-                    return_date = datetime.now().date()
+                    return_date = datetime.now(PKT).date()
 
             # Parse return_time
             try:
@@ -844,10 +847,12 @@ class ToolExecutor:
                 results["errors"].append(f"Invalid return time format: {return_time}")
                 return self._build_away_response(results, return_time)
 
+            # Create timezone-aware datetime in PKT
             scheduled_datetime = datetime(
                 return_date.year, return_date.month, return_date.day,
-                hour, minute, 0
+                hour, minute, 0, tzinfo=PKT
             )
+            logger.info(f"🏠 Scheduled datetime (PKT): {scheduled_datetime}")
 
             # Create schedule tasks for all 4 relays
             for relay_num in [1, 2, 3, 4]:
