@@ -44,6 +44,11 @@ class DeviceScheduleRequest(BaseModel):
     device_name: Optional[str] = Field(default=None, description="Display name for device")
 
 
+class DeviceMessageRequest(BaseModel):
+    """Request body for sending a message to the LCD."""
+    message: str = Field(min_length=1, max_length=127, description="Message to display (ASCII only)")
+
+
 class DeviceCommandResponse(BaseModel):
     """Response for device command."""
     success: bool
@@ -219,6 +224,44 @@ async def list_relays(
     status_data = mqtt.device_status.to_dict()
 
     return [RelayStatus(**r) for r in status_data["relays"]]
+
+
+@router.post("/message", response_model=DeviceCommandResponse)
+async def send_lcd_message(
+    request: DeviceMessageRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Send a message to display on the LCD.
+
+    The ESP32 will display:
+    - Line 1: "MESSAGE" centered and blinking
+    - Line 2: The message text (scrolling if > 16 chars)
+    - RGB LED: Cycling through all colors every 0.5 seconds
+    - Duration: 1 minute
+
+    Only ASCII characters are supported. Non-ASCII characters will be removed.
+    """
+    mqtt = get_mqtt_service()
+
+    if not mqtt.is_connected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="MQTT service not available. Device messaging is offline.",
+        )
+
+    result = await mqtt.publish_message(message=request.message)
+
+    if not result["success"]:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result.get("error", "Failed to send message"),
+        )
+
+    return DeviceCommandResponse(
+        success=True,
+        command_id=result.get("command_id"),
+        message=result.get("display_message", "Message sent to LCD"),
+    )
 
 
 @router.get("/health")

@@ -1,6 +1,6 @@
 /*
  * Evolution Todo - IoT Controller
- * Version: 2.7 (LCD scrolling for long text, 12hr AM/PM format)
+ * Version: 2.8 (LCD message display with blinking header and RGB cycling)
  */
 
 #include <WiFi.h>
@@ -79,6 +79,28 @@ bool showingTimeScreen = true;
 char lastLine1[17] = "";
 char lastLine2[17] = "";
 uint8_t lastSecond = 255;
+
+// Message Display State
+bool messageMode = false;
+char messageText[128] = "";
+unsigned long messageStartTime = 0;
+unsigned long messageBlinkTime = 0;
+unsigned long messageScrollTime = 0;
+unsigned long messageColorTime = 0;
+bool messageHeaderVisible = true;
+int messageScrollPos = 0;
+uint8_t messageColorIndex = 0;
+const unsigned long MESSAGE_DURATION = 60000;  // 1 minute
+const unsigned long MESSAGE_BLINK_INTERVAL = 500;  // Header blink every 500ms
+const unsigned long MESSAGE_SCROLL_INTERVAL = 200;  // Scroll speed
+const unsigned long MESSAGE_COLOR_INTERVAL = 500;  // Color change every 500ms
+
+// RGB color cycle array
+const RGB MESSAGE_COLORS[] = {
+  COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW,
+  COLOR_MAGENTA, COLOR_CYAN, COLOR_ORANGE
+};
+const uint8_t MESSAGE_COLOR_COUNT = 7;
 
 // ============================================
 // Schedule Storage
@@ -250,6 +272,106 @@ void lcdShowForce(const char* line1, const char* line2) {
     lcd.print(line2);
     strncpy(lastLine2, line2, 16);
     lastLine2[16] = '\0';
+  }
+}
+
+// ============================================
+// MESSAGE DISPLAY MODE
+// ============================================
+void startMessageMode(const char* message) {
+  messageMode = true;
+  strncpy(messageText, message, 127);
+  messageText[127] = '\0';
+  messageStartTime = millis();
+  messageBlinkTime = millis();
+  messageScrollTime = millis();
+  messageColorTime = millis();
+  messageHeaderVisible = true;
+  messageScrollPos = 0;
+  messageColorIndex = 0;
+
+  LOG("[Message] Starting message display mode");
+  LOGF("[Message] Text: %s\n", messageText);
+
+  // Clear screen for message mode
+  lcd.clear();
+  lastLine1[0] = '\0';
+  lastLine2[0] = '\0';
+}
+
+void stopMessageMode() {
+  messageMode = false;
+  ledOff();
+  lcd.clear();
+  lastLine1[0] = '\0';
+  lastLine2[0] = '\0';
+  lastSecond = 255;  // Force time screen refresh
+  LOG("[Message] Message display mode ended");
+}
+
+void updateMessageDisplay() {
+  if (!messageMode) return;
+
+  unsigned long now = millis();
+
+  // Check if message duration expired (1 minute)
+  if (now - messageStartTime >= MESSAGE_DURATION) {
+    stopMessageMode();
+    return;
+  }
+
+  // Blink "MESSAGE" header on line 1 (centered)
+  if (now - messageBlinkTime >= MESSAGE_BLINK_INTERVAL) {
+    messageBlinkTime = now;
+    messageHeaderVisible = !messageHeaderVisible;
+
+    lcd.setCursor(0, 0);
+    if (messageHeaderVisible) {
+      lcd.print("    MESSAGE     ");  // Centered on 16 chars
+    } else {
+      lcd.print("                ");  // Blank
+    }
+  }
+
+  // Scroll message on line 2
+  if (now - messageScrollTime >= MESSAGE_SCROLL_INTERVAL) {
+    messageScrollTime = now;
+
+    int msgLen = strlen(messageText);
+    char scrollBuf[64];
+
+    if (msgLen <= 16) {
+      // No scrolling needed - center the text
+      int padding = (16 - msgLen) / 2;
+      snprintf(scrollBuf, 17, "%*s%s%*s", padding, "", messageText, 16 - msgLen - padding, "");
+      lcd.setCursor(0, 1);
+      lcd.print(scrollBuf);
+    } else {
+      // Create scrolling text with padding
+      char paddedMsg[192];
+      snprintf(paddedMsg, 192, "%s    %s", messageText, messageText);  // Loop the message
+
+      // Extract 16-char window
+      char display[17];
+      strncpy(display, paddedMsg + messageScrollPos, 16);
+      display[16] = '\0';
+
+      lcd.setCursor(0, 1);
+      lcd.print(display);
+
+      // Advance scroll position
+      messageScrollPos++;
+      if (messageScrollPos >= msgLen + 4) {
+        messageScrollPos = 0;
+      }
+    }
+  }
+
+  // Cycle through LED colors
+  if (now - messageColorTime >= MESSAGE_COLOR_INTERVAL) {
+    messageColorTime = now;
+    messageColorIndex = (messageColorIndex + 1) % MESSAGE_COLOR_COUNT;
+    ledSet(MESSAGE_COLORS[messageColorIndex], BRIGHT);
   }
 }
 
@@ -567,6 +689,9 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     handleCancel(doc);
   } else if (strcmp(type, "STATUS") == 0) {
     sendHeartbeat();
+  } else if (strcmp(type, "MESSAGE") == 0) {
+    handleMessage(doc);
+    return;  // Don't turn off LED - message mode manages it
   }
 
   ledOff();
@@ -579,6 +704,28 @@ void handleImmediate(JsonDocument& doc) {
   const char* cmdId = doc["command_id"];
 
   LOGF("[Immediate] Relay: %d, Action: %s, CmdId: %s\n", relay, action, cmdId);
+
+  // relay_number: 0 means ALL relays
+  if (relay == 0) {
+    LOGF("[Immediate] ALL RELAYS -> %s\n", action);
+
+    // Show on LCD
+    ledSolid(COLOR_CYAN, BRIGHT);
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("ALL DEVICES");
+    lcd.setCursor(0, 1);
+    lcd.print(strcmp(action, "on") == 0 ? "-> ON" : "-> OFF");
+
+    // Execute on all 4 relays
+    for (int r = 1; r <= 4; r++) {
+      executeAction(r, action);
+    }
+
+    sendAck(cmdId, true, "All executed");
+    delay(1000);
+    return;
+  }
 
   if (relay < 1 || relay > 4) {
     LOGF("[Immediate] ERROR: Invalid relay number %d\n", relay);
@@ -633,9 +780,12 @@ void handleSchedule(JsonDocument& doc) {
   if (hour12 == 0) hour12 = 12;
   const char* ampm = (tm->tm_hour < 12) ? "AM" : "PM";
 
+  // Get relay name (0 = ALL)
+  const char* relayName = (s.relay == 0) ? "ALL" : RELAY_NAMES[s.relay - 1];
+
   char info[48];
   snprintf(info, 48, "%s -> %s @ %d:%02d %s",
-           RELAY_NAMES[s.relay - 1], s.action,
+           relayName, s.action,
            hour12, tm->tm_min, ampm);
 
   lcd.clear();
@@ -667,6 +817,23 @@ void handleCancel(JsonDocument& doc) {
     }
   }
   sendAck(cmdId, false, "Not found");
+}
+
+void handleMessage(JsonDocument& doc) {
+  const char* cmdId = doc["command_id"];
+  const char* text = doc["message"];
+
+  if (!text || strlen(text) == 0) {
+    sendAck(cmdId, false, "Empty message");
+    return;
+  }
+
+  LOGF("[Message] Received: %s\n", text);
+
+  // Start message display mode
+  startMessageMode(text);
+
+  sendAck(cmdId, true, "Message displaying");
 }
 
 // ============================================
@@ -716,8 +883,16 @@ void executeAction(int relay, const char* action) {
 }
 
 void executeScheduledAction(int relay, const char* action, const char* cmdId) {
-  executeAction(relay, action);
-  sendExecuted(cmdId, relay, action);
+  // relay=0 means ALL devices
+  if (relay == 0) {
+    for (int r = 1; r <= 4; r++) {
+      executeAction(r, action);
+    }
+    sendExecuted(cmdId, 0, action);
+  } else {
+    executeAction(relay, action);
+    sendExecuted(cmdId, relay, action);
+  }
 }
 
 // ============================================
@@ -733,17 +908,19 @@ void checkSchedules() {
 
     long diff = s.executeAt - now;
 
-    if (diff <= 5 && diff > 0 && !s.countdownStarted) {
+    if (diff <= 3 && diff > 0 && !s.countdownStarted) {
       s.countdownStarted = true;
       LOGF("[Schedule] Countdown for relay %d\n", s.relay);
 
-      // 5 second RED rapid blink countdown
+      // 3 second RED rapid blink countdown
+      const char* relayName = (s.relay == 0) ? "ALL" : RELAY_NAMES[s.relay - 1];
+
       for (int sec = diff; sec > 0; sec--) {
         ledStartBlink(COLOR_RED, BRIGHT, 100);
 
         char line1[17], line2[17];
         snprintf(line1, 17, "Action in %d...", sec);
-        snprintf(line2, 17, "%s -> %s", RELAY_NAMES[s.relay - 1], s.action);
+        snprintf(line2, 17, "%s -> %s", relayName, s.action);
         lcdShowForce(line1, line2);
 
         unsigned long start = millis();
@@ -961,7 +1138,10 @@ void loop() {
     initTime();
   }
 
-  if (state.allReady) {
+  // Handle message display mode (takes priority over normal screens)
+  if (messageMode) {
+    updateMessageDisplay();
+  } else if (state.allReady) {
     updateScreen();
   }
 }

@@ -481,6 +481,73 @@ class MQTTService:
                 "error": str(e),
             }
 
+    async def publish_message(
+        self,
+        message: str,
+        device_id: str = DEFAULT_DEVICE_ID,
+    ) -> dict[str, Any]:
+        """Send a message to display on the LCD.
+
+        The ESP32 will display:
+        - Line 1: "MESSAGE" centered and blinking
+        - Line 2: The message text (scrolling if > 16 chars)
+        - RGB LED: Cycling through colors every 0.5 seconds
+        - Duration: 1 minute
+
+        Args:
+            message: Text to display (max 127 chars, ASCII only)
+            device_id: Target device ID
+
+        Returns:
+            Result dict with success, command_id, message
+        """
+        if not self._connected:
+            return {
+                "success": False,
+                "error": "MQTT not connected",
+            }
+
+        if not message or not message.strip():
+            return {
+                "success": False,
+                "error": "Message cannot be empty",
+            }
+
+        # Sanitize message for LCD (ASCII only, max 127 chars)
+        lcd_message = sanitize_for_lcd(message, 127)
+
+        if not lcd_message:
+            return {
+                "success": False,
+                "error": "Message contains no displayable characters",
+            }
+
+        command_id = str(uuid4())
+        topic = f"{TOPIC_BASE}/{device_id}/commands"
+
+        payload = {
+            "type": "MESSAGE",
+            "command_id": command_id,
+            "message": lcd_message,
+        }
+
+        try:
+            await self._client.publish(topic, json.dumps(payload))
+            logger.info(f"Published MESSAGE command {command_id}: {lcd_message[:30]}...")
+
+            return {
+                "success": True,
+                "command_id": command_id,
+                "message": lcd_message,
+                "display_message": f"Message sent to LCD: {lcd_message[:50]}{'...' if len(lcd_message) > 50 else ''}",
+            }
+        except Exception as e:
+            logger.error(f"Failed to publish MQTT message: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+            }
+
     async def cancel_schedule(
         self,
         command_id: str,
